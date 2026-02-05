@@ -3,7 +3,7 @@
 Sistema web empresarial para gestionar placas de reles Devantech y equipamiento industrial conectado.
 
 **Autor:** Alejandro Avila Marcos
-**Made with** :heart: **for dev team Valdepenas**
+**Made with** :heart: **for dev team Valdepeñas**
 
 ---
 
@@ -276,4 +276,4 @@ Este proyecto esta licenciado bajo la **MIT License** - ver el archivo [LICENSE]
 
 **Alejandro Avila Marcos**
 
-Made with :heart: for dev team Valdepenas
+Made with :heart: for dev team Valdepeñas
