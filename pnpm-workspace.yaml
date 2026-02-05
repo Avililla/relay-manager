@@ -1,0 +1,5 @@
+enablePrePostScripts: true
+
+onlyBuiltDependencies:
+  - '@serialport/bindings-cpp'
+  - 'better-sqlite3'

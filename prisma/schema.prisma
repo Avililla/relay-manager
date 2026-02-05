@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// Roles (actúan como tenants para filtrar acceso a equipos)
+model Role {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  description String?
+  users       User[]      @relation("UserRoles")
+  equipments  Equipment[] @relation("EquipmentRoles")
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+// Usuarios del sistema
+model User {
+  id              String      @id @default(cuid())
+  email           String      @unique
+  password        String
+  name            String
+  isAdmin         Boolean     @default(false)
+  roles           Role[]      @relation("UserRoles")
+  lockedEquipments Equipment[] @relation("EquipmentLock")
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+// Placas de relés Devantech (8 relés por placa)
+model RelayBoard {
+  id          String      @id @default(cuid())
+  name        String
+  ipAddress   String      @unique
+  totalRelays Int         @default(8)
+  relayState  String      @default("00000000") // Estado de los 8 relés: 0=off, 1=on
+  equipments  Equipment[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+// Tipos de equipo - CONFIGURABLES
+model EquipmentType {
+  id              String      @id @default(cuid())
+  name            String      @unique
+  description     String?
+  relayCount      Int
+  relayConfig     String
+  serialPortCount Int         @default(0) // Número de puertos serial (placas Zynq)
+  equipments      Equipment[]
+  createdAt       DateTime    @default(now())
+}
+
+// Equipos asignados a placas
+// Si roles está vacío = visible para todos
+model Equipment {
+  id            String        @id @default(cuid())
+  name          String
+  description   String?
+  serialNumber  String?
+  typeId        String
+  type          EquipmentType @relation(fields: [typeId], references: [id])
+  boardId       String
+  board         RelayBoard    @relation(fields: [boardId], references: [id])
+  startRelay    Int
+  order         Int
+  roles         Role[]        @relation("EquipmentRoles")
+  serialPorts   SerialPort[]
+  // Campos de bloqueo
+  lockedById    String?
+  lockedBy      User?         @relation("EquipmentLock", fields: [lockedById], references: [id])
+  lockedAt      DateTime?
+  lockExpiresAt DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@unique([boardId, startRelay])
+}
+
+// Puertos serial para placas Zynq dentro de equipos
+model SerialPort {
+  id          String    @id @default(cuid())
+  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  equipmentId String
+  boardIndex  Int       // Índice de la placa Zynq dentro del equipo (0, 1, 2...)
+  serialId    String?   // ID único USB (ej: "/dev/serial/by-id/usb-FTDI_...")
+  label       String?   // Nombre descriptivo (ej: "Placa 1")
+  baudRate    Int       @default(115200)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([equipmentId, boardIndex])
+}
+
+// Configuración global del sistema
+model Settings {
+  id               String @id @default("global")
+  lockTimeoutMins  Int    @default(30) // Tiempo de bloqueo en minutos
+  warningBeforeMins Int   @default(5)  // Minutos antes de mostrar warning
+}
