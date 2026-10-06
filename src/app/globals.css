@@ -1,77 +1,178 @@
 @import "tailwindcss";
-@import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+/*
+ * Relay Manager design tokens (§8.2–§8.5). "Bench instrument": graphite surfaces, 1 px hairlines, one cobalt accent
+ * (mine / selected / focus / primary action) and a status palette used only for state.
+ *
+ * The theme lives on <html data-theme="dark|light|rosa">, resolved before paint by the inline script in layout.tsx.
+ * Dark tokens sit on `:root, [data-theme="dark"]`, so without JavaScript the app is dark (D39). There is no
+ * prefers-color-scheme block: "Sistema" is resolved by the script (dark or light, never Rosa). The contrast test
+ * (src/lib/client/contrast.test.ts) parses these three blocks; keep their selectors as they are.
+ */
 
-:root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.714);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+@custom-variant light (&:where([data-theme=light], [data-theme=light] *));
+/* Hover effects only for a fine pointer that can hover (§8.5): no sticky hover after a tap. */
+@custom-variant hover {
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      @slot;
+    }
+  }
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.439 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.269 0 0);
-  --sidebar-ring: oklch(0.439 0 0);
+:root, [data-theme="dark"] {
+  color-scheme: dark;
+  --background: oklch(0.165 0.006 240);
+  --card: oklch(0.195 0.007 240);
+  --popover: oklch(0.230 0.008 240);
+  --secondary: oklch(0.230 0.008 240);
+  --accent: oklch(0.230 0.008 240);
+  --muted: oklch(0.140 0.006 240);
+  --border: oklch(0.285 0.008 240);
+  --input: oklch(0.370 0.010 240);
+  --foreground: oklch(0.935 0.004 240);
+  --muted-foreground: oklch(0.735 0.008 240);
+  --faint-foreground: oklch(0.630 0.010 240);
+  --brand: oklch(0.720 0.120 248);
+  --brand-tint: oklch(0.720 0.120 248 / 0.12);
+  --primary: oklch(0.540 0.150 250);
+  --primary-foreground: oklch(0.985 0.004 250);
+  --ring: oklch(0.720 0.120 248);
+  --ok: oklch(0.760 0.150 152);
+  --ok-tint: oklch(0.760 0.150 152 / 0.14);
+  --warn: oklch(0.820 0.140 78);
+  --warn-tint: oklch(0.820 0.140 78 / 0.14);
+  --danger: oklch(0.700 0.170 25);
+  --danger-tint: oklch(0.700 0.170 25 / 0.14);
+  --control-border: oklch(0.550 0.010 240);
+  --danger-fill: oklch(0.560 0.190 27);
+  --danger-fill-foreground: oklch(0.985 0.004 250);
+  --destructive: var(--danger-fill);
+  --terminal-bg: oklch(0.130 0.006 240);
+  --scrim: oklch(0.080 0.004 240 / 0.62);
+  --overlay-shadow: 0 8px 24px oklch(0 0 0 / 0.5);
+  /* xterm host colours: hex copies of TERMINAL_THEME (components/terminal/theme.ts); Claro inherits them. */
+  --xterm-bg: #060809;
+  --xterm-fg: #dbdee1;
+  --xterm-scrollbar: #393e41;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --background: oklch(0.975 0.003 240);
+  --card: oklch(0.995 0.002 240);
+  --popover: oklch(0.995 0.002 240);
+  --secondary: oklch(0.955 0.004 240);
+  --accent: oklch(0.955 0.004 240);
+  --muted: oklch(0.965 0.003 240);
+  --border: oklch(0.905 0.005 240);
+  --input: oklch(0.820 0.008 240);
+  --foreground: oklch(0.220 0.010 240);
+  --muted-foreground: oklch(0.440 0.012 240);
+  --faint-foreground: oklch(0.520 0.012 240);
+  --brand: oklch(0.500 0.150 252);
+  --brand-tint: oklch(0.500 0.150 252 / 0.08);
+  --primary: oklch(0.500 0.150 252);
+  --primary-foreground: oklch(0.990 0.003 250);
+  --ring: oklch(0.500 0.150 252);
+  --ok: oklch(0.520 0.130 152);
+  --ok-tint: oklch(0.520 0.130 152 / 0.10);
+  --warn: oklch(0.530 0.125 70);
+  --warn-tint: oklch(0.530 0.125 70 / 0.10);
+  --danger: oklch(0.540 0.190 27);
+  --danger-tint: oklch(0.540 0.190 27 / 0.10);
+  --control-border: oklch(0.600 0.010 240);
+  --danger-fill: oklch(0.540 0.190 27);
+  --danger-fill-foreground: oklch(0.990 0.003 250);
+  --destructive: var(--danger-fill);
+  --terminal-bg: oklch(0.180 0.006 240);
+  --scrim: oklch(0.220 0.010 240 / 0.32);
+  --overlay-shadow: 0 8px 24px oklch(0.2 0.01 240 / 0.14);
+}
+
+/*
+ * «Rosa» (chicle): a gag theme built like Oscuro — saturated bubblegum surfaces (hue ≈ 356) with white text — that
+ * stays a work tool. Candy roles: blue-raspberry turquoise for mine / selected / links / primary, lemon for the focus
+ * ring, lime gummy for ok, lemon-amber for warn and tangerine for danger. Danger never leans on hue alone: its fills
+ * and tints are dark liquorice (clearly darker than any pink), with white text and a tangerine icon or edge. Status
+ * tints are dark translucent "gummies" so white text stays AA on them. Gummy corners 8 / 12 / 16 px, candy-stripe
+ * and sprinkle details below (static with reduced motion). Consoles stay dark, on a grape palette.
+ */
+[data-theme="rosa"] {
+  color-scheme: dark;
+  --background: oklch(0.390 0.160 350);
+  --card: oklch(0.450 0.180 350);
+  --popover: oklch(0.465 0.185 350);
+  --secondary: oklch(0.485 0.185 350);
+  --accent: oklch(0.485 0.185 350);
+  --muted: oklch(0.330 0.135 350);
+  --border: oklch(0.620 0.160 350);
+  --input: oklch(0.800 0.100 350);
+  --foreground: oklch(0.985 0.010 350);
+  --muted-foreground: oklch(0.925 0.040 350);
+  --faint-foreground: oklch(0.895 0.055 350);
+  --brand: oklch(0.880 0.105 210);
+  --brand-tint: oklch(0.300 0.130 300 / 0.62);
+  --primary: oklch(0.870 0.115 205);
+  --primary-foreground: oklch(0.250 0.090 330);
+  --ring: oklch(0.950 0.150 108);
+  --ok: oklch(0.890 0.170 150);
+  --ok-tint: oklch(0.320 0.080 165 / 0.72);
+  --warn: oklch(0.930 0.160 102);
+  --warn-tint: oklch(0.340 0.070 75 / 0.72);
+  --danger: oklch(0.870 0.105 55);
+  --danger-tint: oklch(0.200 0.060 15 / 0.82);
+  --control-border: oklch(0.860 0.070 350);
+  --danger-fill: oklch(0.220 0.070 18);
+  --danger-fill-foreground: oklch(0.985 0.010 350);
+  --destructive: var(--danger-fill);
+  --terminal-bg: oklch(0.180 0.060 320);
+  --scrim: oklch(0.180 0.080 350 / 0.55);
+  --overlay-shadow: 0 10px 28px oklch(0.180 0.080 350 / 0.45);
+  /* Hex copies of ROSA_TERMINAL_THEME (components/terminal/theme.ts). */
+  --xterm-bg: #1a0a1e;
+  --xterm-fg: #fff4fa;
+  --xterm-scrollbar: #5e3a63;
+  /* Gummy corners: chips 8, controls 12, panels 16 (the other themes keep 4 / 6 / 8). */
+  --rm-radius-sm: 8px;
+  --rm-radius-md: 12px;
+  --rm-radius-lg: 16px;
+}
+
+:root {
+  /* Aliases resolve on <html>, where data-theme lives, so they follow the active theme. */
+  --card-foreground: var(--foreground);
+  --popover-foreground: var(--foreground);
+  --secondary-foreground: var(--foreground);
+  --accent-foreground: var(--foreground);
+  --radius: 0.375rem; /* 6px controls; panels use --radius-lg 8px; chips 4px */
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --dur-slow: 240ms;
+
+  /* Motion knobs (§8.5); the reduced-motion block below flattens them. */
+  --rm-pop-scale: 0.97;
+  --rm-press-scale: 0.98;
+  --rm-sheet-from: -100%;
+  --rm-sheet-opacity-from: 1;
+  --rm-dur-pop-in: 150ms;
+  --rm-dur-pop-out: 100ms;
+  --rm-dur-dialog-in: 180ms;
+  --rm-dur-dialog-out: 120ms;
+  --rm-dur-sheet-in: 220ms;
+  --rm-dur-sheet-out: 160ms;
+}
+
+/* Only the tokens exist as colours: no stray palette colours (text-red-500…) can creep into the UI. */
+@theme {
+  --color-*: initial;
+  --ease-in: initial;
+}
+
+@theme static {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 }
 
 @theme inline {
@@ -81,71 +182,483 @@
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-faint-foreground: var(--faint-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
+  --color-control-border: var(--control-border);
+  --color-brand: var(--brand);
+  --color-brand-tint: var(--brand-tint);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
   --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-ok: var(--ok);
+  --color-ok-tint: var(--ok-tint);
+  --color-warn: var(--warn);
+  --color-warn-tint: var(--warn-tint);
+  --color-danger: var(--danger);
+  --color-danger-tint: var(--danger-tint);
+  --color-danger-fill: var(--danger-fill);
+  --color-danger-fill-foreground: var(--danger-fill-foreground);
+  --color-destructive: var(--destructive);
+  --color-terminal-bg: var(--terminal-bg);
+  --color-scrim: var(--scrim);
+
+  --font-sans: var(--font-sans-family, system-ui, sans-serif);
+  --font-mono: var(--font-mono-family, "DejaVu Sans Mono", ui-monospace, monospace);
+
+  --radius-sm: var(--rm-radius-sm, 4px);
+  --radius-md: var(--rm-radius-md, 6px);
+  --radius-lg: var(--rm-radius-lg, 8px);
+
+  --shadow-overlay: var(--overlay-shadow);
+}
+
+/* Type scale (§8.3; 4 px grid). One page title per page; real h2/h3 for sections. */
+@theme {
+  --text-title: 1.25rem;
+  --text-title--line-height: 1.75rem;
+  --text-title--font-weight: 600;
+  --text-title--letter-spacing: -0.01em;
+  --text-section: 0.9375rem;
+  --text-section--line-height: 1.375rem;
+  --text-section--font-weight: 600;
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.25rem;
+  --text-meta: 0.8125rem;
+  --text-meta--line-height: 1.125rem;
+  --text-micro: 0.75rem;
+  --text-micro--line-height: 1rem;
+  --text-micro--font-weight: 500;
+  --text-micro--letter-spacing: 0.02em;
+  --text-data: 0.8125rem;
+  --text-data--line-height: 1.125rem;
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-border);
   }
+
+  html {
+    font-family: var(--font-sans);
+    scrollbar-color: var(--input) transparent;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
   body {
-    @apply bg-background text-foreground;
+    background-color: var(--background);
+    color: var(--foreground);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-synthesis-weight: none;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: color-mix(in oklab, var(--brand) 34%, transparent);
+    color: inherit;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  input,
+  textarea {
+    caret-color: var(--brand);
+  }
+
+  a {
+    text-underline-offset: 0.2em;
+    text-decoration-thickness: from-font;
+  }
+
+  code,
+  kbd,
+  samp,
+  pre {
+    font-family: var(--font-mono);
+    font-variant-ligatures: none;
+  }
+
+  ::placeholder {
+    color: var(--faint-foreground);
+    opacity: 1;
+  }
+
+  [hidden]:where(:not([hidden="until-found"])) {
+    display: none !important;
+  }
+
+  /* iOS zooms into inputs under 16 px: keep 16 px on small touch screens only. */
+  @media (max-width: 639px) and (pointer: coarse) {
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
   }
 }
 
-/* Custom scrollbar */
-.custom-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: var(--muted-foreground) transparent;
+/* ------------------------------------------------------------------ motion (§8.5) */
+
+@keyframes rm-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(var(--rm-pop-scale));
+  }
 }
 
-.custom-scrollbar::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+@keyframes rm-pop-out {
+  to {
+    opacity: 0;
+    transform: scale(var(--rm-pop-scale));
+  }
 }
 
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-  border-radius: 4px;
+@keyframes rm-fade-in {
+  from {
+    opacity: 0;
+  }
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: var(--muted-foreground);
-  border-radius: 4px;
-  opacity: 0.5;
+@keyframes rm-fade-out {
+  to {
+    opacity: 0;
+  }
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: var(--foreground);
+@keyframes rm-sheet-in {
+  from {
+    opacity: var(--rm-sheet-opacity-from);
+    transform: translateX(var(--rm-sheet-from));
+  }
+}
+
+@keyframes rm-sheet-out {
+  to {
+    opacity: var(--rm-sheet-opacity-from);
+    transform: translateX(var(--rm-sheet-from));
+  }
+}
+
+@keyframes rm-new-row {
+  from {
+    background-color: var(--brand-tint);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+@keyframes rm-hide-later {
+  to {
+    visibility: hidden;
+  }
+}
+
+/* Popover, dropdown, select and tooltip: opacity + scale from the Radix transform origin, 150 in / 100 out. */
+@utility motion-pop {
+  &[data-state="open"],
+  &[data-state="delayed-open"] {
+    animation: rm-pop-in var(--rm-dur-pop-in) var(--ease-out);
+  }
+  &[data-state="closed"] {
+    animation: rm-pop-out var(--rm-dur-pop-out) var(--ease-out) forwards;
+  }
+}
+
+/* Dialog: opacity + scale from the centre, 180 in / 120 out. */
+@utility motion-dialog {
+  &[data-state="open"] {
+    animation: rm-pop-in var(--rm-dur-dialog-in) var(--ease-out);
+  }
+  &[data-state="closed"] {
+    animation: rm-pop-out var(--rm-dur-dialog-out) var(--ease-out) forwards;
+  }
+}
+
+@utility motion-fade {
+  &[data-state="open"] {
+    animation: rm-fade-in var(--rm-dur-dialog-in) var(--ease-out);
+  }
+  &[data-state="closed"] {
+    animation: rm-fade-out var(--rm-dur-dialog-out) var(--ease-out) forwards;
+  }
+}
+
+/* The navigation sheet slides in from the left edge (mobile rail). */
+@utility motion-sheet {
+  &[data-state="open"] {
+    animation: rm-sheet-in var(--rm-dur-sheet-in) var(--ease-out);
+  }
+  &[data-state="closed"] {
+    animation: rm-sheet-out var(--rm-dur-sheet-out) var(--ease-out) forwards;
+  }
+}
+
+/* Button :active feedback, 100 ms. */
+@utility press {
+  transition-property: transform, background-color, border-color, color, opacity;
+  transition-duration: 100ms;
+  transition-timing-function: var(--ease-out);
+  &:active:not(:disabled, [aria-disabled="true"]) {
+    transform: scale(var(--rm-press-scale));
+  }
+}
+
+/* Colour-only state changes (reservation state on a unit: 160 ms). */
+@utility tint-transition {
+  transition-property: background-color, border-color, color, box-shadow;
+  transition-duration: 160ms;
+  transition-timing-function: var(--ease-out);
+}
+
+/* Hot-plugged row: brand tint fading out over 1200 ms. With reduced motion, a static "Nuevo" chip for 10 s. */
+@utility animate-new-row {
+  animation: rm-new-row 1200ms var(--ease-out) both;
+}
+
+/* RX lamp: lit on data, then back to 0.3 in 250 ms (the component throttles to 10 Hz). */
+@utility rx-lamp {
+  opacity: 0.3;
+  transition: opacity 250ms var(--ease-out);
+  &[data-lit] {
+    opacity: 1;
+    transition: none;
+  }
+}
+
+/* Unknown relay state: neutral hatch, never a hue (§8.6). */
+@utility hatch {
+  background-image: repeating-linear-gradient(135deg, var(--control-border) 0 1px, transparent 1px 5px);
+}
+
+.new-row-chip {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --rm-pop-scale: 1;
+    --rm-press-scale: 1;
+    --rm-sheet-from: 0%;
+    --rm-sheet-opacity-from: 0;
+    --rm-dur-pop-in: 120ms;
+    --rm-dur-pop-out: 100ms;
+    --rm-dur-dialog-in: 120ms;
+    --rm-dur-dialog-out: 100ms;
+    --rm-dur-sheet-in: 120ms;
+    --rm-dur-sheet-out: 100ms;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+
+  .animate-new-row {
+    animation: none;
+  }
+
+  .animate-new-row .new-row-chip {
+    display: inline-flex;
+    animation: rm-hide-later 10s linear forwards;
+  }
+
+  .rx-lamp {
+    transition: none;
+  }
+
+  .tint-transition {
+    transition-duration: 120ms;
+  }
+}
+
+/* ------------------------------------------------------------------ browser surfaces */
+
+/* Static notice for unsupported browsers (D35). Plain colours: oklch may be what is missing. */
+#rm-unsupported {
+  display: none;
+}
+
+[data-unsupported] #rm-unsupported {
+  display: block;
+  padding: 12px 16px;
+  background: #3a2f12;
+  color: #f2f2f2;
+  font: 14px/20px system-ui, sans-serif;
+  text-align: center;
+}
+
+/* xterm: the host paints the same background as the terminal theme, so padding never shows a seam. */
+.rm-term .xterm {
+  height: 100%;
+}
+
+.rm-term .xterm-viewport {
+  scrollbar-color: var(--xterm-scrollbar) transparent;
+}
+
+/*
+ * «Rosa» details. Brand mark (components/shell/brand-mark.tsx): a bubblegum tile, candy lamps and a lollipop
+ * (`rm-mark-pop`, hidden in the other themes) in place of the channel lines; CSS `fill`/`stroke` override the SVG's
+ * hex attributes. The rest is decoration that never carries meaning and never sits under text: faint sprinkles on the
+ * page, a candy-stripe hem under the top bar, a candy-cane outline on the active rail item, candy-striped progress
+ * bars (they march only when motion is allowed) and a gummy gloss on primary buttons.
+ */
+.rm-mark-pop {
+  display: none;
+}
+
+@keyframes rm-candy-march {
+  to {
+    background-position-x: calc(12px / max(var(--rm-progress, 1), 0.02));
+  }
+}
+
+[data-theme="rosa"] {
+  .rm-mark-tile {
+    fill: #ff5fae;
+  }
+  .rm-mark-rim,
+  .rm-mark-dim {
+    stroke: #ffd1e8;
+  }
+  .rm-mark-lamp {
+    fill: #5cefe0;
+  }
+  .rm-mark-line,
+  .rm-mark-dim-line {
+    display: none;
+  }
+  .rm-mark-pop {
+    display: inline;
+  }
+
+  ::selection {
+    background-color: var(--ring);
+    color: var(--primary-foreground);
+  }
+
+  /* Sprinkles: sparse, low-alpha candy dots on the page background only (panels and cards cover them). */
+  body {
+    background-image:
+      radial-gradient(circle at 14px 22px, oklch(0.950 0.150 108 / 0.22) 0 1.5px, transparent 2px),
+      radial-gradient(circle at 70px 52px, oklch(0.880 0.105 210 / 0.24) 0 1.5px, transparent 2px),
+      radial-gradient(circle at 118px 14px, oklch(0.900 0.165 145 / 0.2) 0 1.5px, transparent 2px),
+      radial-gradient(circle at 40px 104px, oklch(1 0 0 / 0.16) 0 1.25px, transparent 1.75px),
+      radial-gradient(circle at 128px 96px, oklch(0.950 0.150 108 / 0.18) 0 1.25px, transparent 1.75px),
+      radial-gradient(circle at 92px 136px, oklch(0.880 0.105 210 / 0.2) 0 1.25px, transparent 1.75px);
+    background-size: 150px 150px;
+  }
+
+  /* Candy-stripe hem under the top bar (replaces its hairline). */
+  [data-slot="top-bar"] {
+    position: relative;
+    border-bottom-color: transparent;
+    &::after {
+      content: "";
+      position: absolute;
+      inset: auto 0 -1px;
+      height: 4px;
+      pointer-events: none;
+      background: repeating-linear-gradient(-45deg, oklch(0.985 0.010 350) 0 6px, oklch(0.720 0.180 356) 6px 12px);
+    }
+  }
+
+  /* Active rail item: a 2 px candy-cane outline (masked ring, no layout shift). */
+  [data-slot="rail-link"][aria-current="page"] {
+    position: relative;
+    &::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      padding: 2px;
+      border-radius: inherit;
+      pointer-events: none;
+      background: repeating-linear-gradient(-45deg, oklch(0.985 0.010 350) 0 4px, oklch(0.720 0.180 356) 4px 8px);
+      mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+    }
+  }
+
+  /* Progress: white candy stripes on the blue-raspberry bar. The indicator is scaled by --rm-progress, so its tile is
+   * pre-stretched by the inverse: the stripes stay 45° and the same width at any value. */
+  [data-slot="progress-indicator"] {
+    background-image: linear-gradient(to right top, transparent 25%, oklch(1 0 0 / 0.5) 25% 50%, transparent 50% 75%, oklch(1 0 0 / 0.5) 75%);
+    background-size: calc(12px / max(var(--rm-progress, 1), 0.02)) 12px;
+  }
+
+  /* Error text (form and row errors): a liquorice label, so an error never reads as plain orange text on pink. */
+  :is(p, span).text-danger {
+    width: fit-content;
+    max-width: 100%;
+    padding: 1px 6px;
+    border-radius: var(--radius-sm);
+    background-color: var(--danger-fill);
+    box-decoration-break: clone;
+  }
+
+  /* Error toasts are liquorice too (the toast's bg-popover / border read these tokens). */
+  .rm-toaster [data-sonner-toast][data-type="error"] {
+    --popover: var(--danger-fill);
+    --border: var(--danger);
+  }
+
+  /* Gummy primary buttons: a soft top gloss and a slightly darker bottom lip. */
+  [data-slot="button"][data-variant="primary"] {
+    background-image: linear-gradient(to bottom, oklch(1 0 0 / 0.42), oklch(1 0 0 / 0) 62%);
+    box-shadow: inset 0 -2px 0 oklch(0.600 0.100 215 / 0.55), 0 2px 6px oklch(0.200 0.100 350 / 0.35);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-theme="rosa"] [data-slot="progress-indicator"] {
+    animation: rm-candy-march 900ms linear infinite;
+  }
+}
+
+/* Toasts clear the workspace status bar (36 px on phones, 28 px from md) instead of covering its controls. */
+:root:has([data-slot="workspace-status-bar"]) {
+  --toast-lift: 2.25rem;
+}
+@media (min-width: 48rem) {
+  :root:has([data-slot="workspace-status-bar"]) {
+    --toast-lift: 1.75rem;
+  }
+}
+
+/* Sonner (§8.5): 200 ms in / 150 ms out, tokens instead of its palette. */
+.rm-toaster [data-sonner-toast] {
+  --normal-bg: var(--popover);
+  --normal-text: var(--foreground);
+  --normal-border: var(--border);
+  transition-duration: 200ms !important;
+  transition-timing-function: var(--ease-out) !important;
+}
+
+.rm-toaster [data-sonner-toast][data-removed="true"] {
+  transition-duration: 150ms !important;
 }

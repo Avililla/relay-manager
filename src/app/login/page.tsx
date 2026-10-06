@@ -1,98 +1,19 @@
-/**
- * Relay Manager
- *
- * @author Alejandro Avila Marcos
- * Made with ❤️ for dev team Valdepeñas
- */
+import type { Metadata } from "next"
+import { AuthFrame } from "@/components/auth/auth-frame"
+import { LoginForm } from "@/components/auth/login-form"
+import { auth as t } from "@/lib/i18n/admin"
+import { safeNextPath } from "@/lib/safe-next"
+import { getPublicSettings } from "@/server/queries/settings"
 
-"use client"
+export const metadata: Metadata = { title: t.loginTitle }
 
-import { useState } from "react"
-import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-
-export default function LoginPage() {
-  const router = useRouter()
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
-
-    const formData = new FormData(e.currentTarget)
-    const email = formData.get("email") as string
-    const password = formData.get("password") as string
-
-    try {
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      })
-
-      if (result?.error) {
-        setError("Credenciales incorrectas")
-        setLoading(false)
-        return
-      }
-
-      router.push("/")
-      router.refresh()
-    } catch {
-      setError("Error al iniciar sesión")
-      setLoading(false)
-    }
-  }
-
+/** Login (§8.9). Public; the proxy sends signed-in users to `/`. `?next=` is honoured only through safeNextPath (§6.5). */
+export default async function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const [sp, pub] = await Promise.all([searchParams, getPublicSettings()])
+  const next = safeNextPath(typeof sp.next === "string" ? sp.next : "/")
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Relay Manager</CardTitle>
-          <CardDescription>Inicia sesión para continuar</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="admin@example.com"
-                required
-                disabled={loading}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Contraseña</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                placeholder="••••••••"
-                required
-                disabled={loading}
-              />
-            </div>
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Iniciando sesión..." : "Iniciar sesión"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-      <footer className="fixed bottom-2 right-4 text-xs text-muted-foreground/60">
-        Made by Alejandro Avila Marcos
-      </footer>
-    </div>
+    <AuthFrame labName={pub.labName} bannerText={pub.bannerText} version={pub.version} rev={pub.rev}>
+      <LoginForm next={next} />
+    </AuthFrame>
   )
 }

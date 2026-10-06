@@ -1,0 +1,63 @@
+# Sin conexión:  docker load -i relay-manager-image-<ver>.tar.gz && RM_VERSION=<ver> docker compose up -d
+# Desde la carpeta del paquete extraído, con su perfil (si lo trae) en ./perfil:
+#   RM_VERSION=<ver> docker compose -f docker/compose.yaml --project-directory . up -d
+name: relay-manager
+services:
+  relay-manager:
+    image: relay-manager:${RM_VERSION:?Define RM_VERSION}
+    restart: unless-stopped
+    init: true                             # reaper for PID 1
+    network_mode: host                     # UDP 30303 discovery + LAN boards + http://<ip>:3200 + accesses 3201-3230
+    group_add:
+      - "${DIALOUT_GID:-20}"               # numeric host gid of dialout: getent group dialout
+      - "${FILES_GID:-1000}"               # Archivos: gid of the host folder's group (id -g of its owner)
+    cap_drop: [ALL]
+    # Red de equipos: NET_ADMIN deja al servicio crear sus interfaces VLAN (rmv*), direcciones y rutas propias en el
+    # adaptador USB del switch de los equipos (nunca en la red del laboratorio). SETUID y SETGID solo sirven para que el
+    # lanzador pase de root al usuario relay-manager al arrancar: el servidor queda con NET_ADMIN como única capacidad.
+    # Si no usas la red de equipos, quita NET_ADMIN (lo demás funciona igual y la web muestra las órdenes para root).
+    # KILL: el init del contenedor (root) reenvía SIGTERM al servidor, que corre con otro usuario.
+    cap_add: [NET_ADMIN, SETUID, SETGID, KILL]
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    tmpfs: ["/tmp:size=64m,mode=1777"]
+    environment:
+      RM_PORT: ${RM_PORT:-3200}
+      RM_SERIAL_DEV_ROOT: /hostdev
+      RM_ACCESS_PORTS: ${RM_ACCESS_PORTS:-3201-3230}
+      TZ: ${TZ:-Europe/Madrid}
+    volumes:
+      - relay-data:/data                   # db, auth-secret, setup-token, backups, consoles, config.env
+      - /dev:/hostdev:ro                   # hot-plug; char devices still open read-write; inotify works
+      # Archivos (RM_FILES_DIR=/files): la carpeta del anfitrión que la web deja subir y descargar. Créala antes
+      # (mkdir -p ~/tftp && chmod 2775 ~/tftp) y define FILES_GID=$(id -g) para que el contenedor escriba en ella.
+      - ${RM_FILES_HOST_DIR:-${HOME}/tftp}:/files
+      # Perfil del proyecto (perfil.env, plantillas/, herramientas/), en solo lectura. Sin él (carpeta vacía), valores
+      # genéricos. El contenedor lo lee como el usuario relay-manager (uid 10001) con el grupo FILES_GID: sus ficheros
+      # tienen que ser legibles por ese grupo o por todos. Tras cambiar las plantillas:
+      # docker compose exec relay-manager relay-manager plantillas recargar
+      - ${RM_PROFILE_HOST_DIR:-./perfil}:/perfil:ro
+      # Segunda carpeta de Archivos (RM_FILES_EXTRA_DIR=/extra), solo si el perfil le da nombre (RM_FILES_EXTRA_NAME).
+      # Igual que la de arriba: créala antes (mkdir -p ~/compartida && chmod 2775 ~/compartida), con el grupo
+      # FILES_GID. El script de descarga del perfil corre dentro del contenedor: solo tiene lo que trae la imagen
+      # (bash, coreutils, tar; ni curl, ni python3, ni zip).
+      - ${RM_FILES_EXTRA_HOST_DIR:-${HOME}/compartida}:/extra
+      # Accesos JTAG (opcional): los cables USB para hw_server y la instalación de Xilinx del anfitrión, en solo
+      # lectura. Con ellos, define RM_HW_SERVER (p. ej. /tools/Xilinx/Vivado_Lab/2024.2/bin/hw_server) si no está
+      # en /tools/Xilinx u /opt/Xilinx.
+      # - /dev/bus/usb:/dev/bus/usb:ro
+      # «Copiar a una carpeta del servidor» (opcional): los pendrives del anfitrión. En Docker solo se copia como el
+      # usuario del contenedor (sin «como administrador»: el contenedor no tiene el root del anfitrión), así que la
+      # carpeta tiene que dejar escribir al grupo FILES_GID. rslave: los pendrives montados después también se ven.
+      # - /media:/media:rslave
+      # - /tools/Xilinx:/tools/Xilinx:ro
+    device_cgroup_rules:
+      - "c 188:* rw"                       # ttyUSB* (no mknod)
+      - "c 166:* rw"                       # ttyACM*
+      - "c 189:* rw"                       # /dev/bus/usb (cables JTAG de los accesos)
+    stop_grace_period: 15s
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+volumes:
+  relay-data:

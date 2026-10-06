@@ -1,0 +1,64 @@
+{
+  "simDir": "${XDG_RUNTIME_DIR}/relay-manager-sim",
+  "consoles": [
+    {
+      "link": "ttyV0",
+      "stage": "boot",
+      "host": "equipo-a-01-uart0"
+    },
+    {
+      "link": "ttyV1",
+      "stage": "login",
+      "host": "equipo-a-01-uart1"
+    },
+    {
+      "link": "ttyV2",
+      "stage": "shell",
+      "host": "equipo-a-02-uart0"
+    },
+    {
+      "link": "ttyV3",
+      "stage": "uboot",
+      "host": "equipo-a-02-uart1"
+    }
+  ],
+  "relays": [
+    {
+      "model": "dS378",
+      "host": "127.0.0.2",
+      "http": 18080,
+      "ascii": 17123,
+      "udp": true,
+      "replyTo": "127.255.255.255",
+      "mac": "00:04:a3:00:00:01"
+    },
+    {
+      "model": "ETH008",
+      "host": "127.0.0.3",
+      "http": 18081,
+      "eth": 17494,
+      "user": "admin",
+      "pass": "password",
+      "udp": true,
+      "replyTo": "127.255.255.255",
+      "mac": "00:04:a3:00:00:02"
+    }
+  ],
+  "jtag": [
+    {
+      "serial": "210299ABCD01",
+      "port": "9"
+    },
+    {
+      "serial": "210299ABCD02",
+      "port": "10"
+    }
+  ],
+  "tcpTargets": [
+    {
+      "host": "127.0.0.4",
+      "port": 2222,
+      "banner": "SSH-2.0-OpenSSH_9.6 (equipo simulado)"
+    }
+  ]
+}

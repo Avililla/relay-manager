@@ -2,12 +2,9 @@
  * Relay Manager
  *
  * @author Alejandro Avila Marcos
+ * @author Jose Duro Gómez
  * Made with ❤️ for dev team Valdepeñas
  */
 
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
-}
+// Token-aware `cn` (§8.3); kept here for shadcn-style imports.
+export { cn } from "@/lib/client/cn"

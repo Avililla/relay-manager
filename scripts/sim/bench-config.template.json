@@ -1,0 +1,298 @@
+{
+  "format": "relay-manager-config",
+  "version": 1,
+  "exportedAt": "2026-09-23T00:00:00.000Z",
+  "appVersion": "2.0.0",
+  "settings": {
+    "labName": "Laboratorio",
+    "bannerText": null
+  },
+  "roles": [],
+  "templates": [],
+  "boards": [
+    {
+      "name": "dS378 banco",
+      "driver": "devantech-ds-ascii",
+      "host": "127.0.0.2",
+      "httpPort": 18080,
+      "tcpPort": 17123,
+      "model": "dS378",
+      "moduleId": 35,
+      "mac": "00:04:a3:00:00:01",
+      "relayCount": 8,
+      "options": {
+        "toggleVar": "V20944"
+      },
+      "username": null,
+      "enabled": true,
+      "hasPassword": false
+    }
+  ],
+  "equipment": [
+    {
+      "name": "Equipo A #01",
+      "serialNumber": null,
+      "description": "Equipo simulado del banco (consolas ttyV0 y ttyV1, relé de alimentación)",
+      "templateName": "Equipo con 2 consolas",
+      "roles": [],
+      "consoles": [
+        {
+          "key": "UART0",
+          "label": "UART0",
+          "line": {
+            "baudRate": 115200,
+            "dataBits": 8,
+            "parity": "none",
+            "stopBits": 1,
+            "flowControl": "none"
+          },
+          "enterMode": "cr",
+          "localEcho": false,
+          "hupcl": false,
+          "captureToDisk": true,
+          "identify": {
+            "hostnameRegex": "uart0"
+          },
+          "binding": {
+            "matchBy": "path",
+            "bindingKey": "virtual:${SIM_DIR}/ttyV0",
+            "byId": null,
+            "byPath": null,
+            "usbVendorId": null,
+            "usbProductId": null,
+            "usbSerial": null,
+            "usbInterface": null,
+            "usbPortNumber": null,
+            "usbIdPath": null,
+            "devicePath": "${SIM_DIR}/ttyV0",
+            "adapterLabel": "ttyV0 (virtual)",
+            "lastDevNode": "${SIM_DIR}/ttyV0"
+          }
+        },
+        {
+          "key": "UART1",
+          "label": "UART1",
+          "line": {
+            "baudRate": 115200,
+            "dataBits": 8,
+            "parity": "none",
+            "stopBits": 1,
+            "flowControl": "none"
+          },
+          "enterMode": "cr",
+          "localEcho": false,
+          "hupcl": false,
+          "captureToDisk": true,
+          "identify": {
+            "hostnameRegex": "uart1"
+          },
+          "binding": {
+            "matchBy": "path",
+            "bindingKey": "virtual:${SIM_DIR}/ttyV1",
+            "byId": null,
+            "byPath": null,
+            "usbVendorId": null,
+            "usbProductId": null,
+            "usbSerial": null,
+            "usbInterface": null,
+            "usbPortNumber": null,
+            "usbIdPath": null,
+            "devicePath": "${SIM_DIR}/ttyV1",
+            "adapterLabel": "ttyV1 (virtual)",
+            "lastDevNode": "${SIM_DIR}/ttyV1"
+          }
+        }
+      ],
+      "relays": [
+        {
+          "key": "POWER",
+          "label": "Alimentación",
+          "purpose": "power",
+          "requireConfirm": true,
+          "defaultPulseMs": null,
+          "boardName": "dS378 banco",
+          "channel": 1
+        }
+      ],
+      "accesses": [
+        {
+          "key": "JTAG0",
+          "label": "JTAG 0",
+          "kind": "jtag",
+          "port": 3201,
+          "enabled": true,
+          "policy": "reserved",
+          "cableSerial": "210299ABCD01",
+          "consoleKey": null,
+          "targetHost": null,
+          "targetPort": null
+        },
+        {
+          "key": "JTAG1",
+          "label": "JTAG 1",
+          "kind": "jtag",
+          "port": 3202,
+          "enabled": true,
+          "policy": "reserved",
+          "cableSerial": "210299ABCD02",
+          "consoleKey": null,
+          "targetHost": null,
+          "targetPort": null
+        },
+        {
+          "key": "SERIE0",
+          "label": "Serie 0",
+          "kind": "serial",
+          "port": 3203,
+          "enabled": true,
+          "policy": "reserved",
+          "cableSerial": null,
+          "consoleKey": "UART0",
+          "targetHost": null,
+          "targetPort": null
+        },
+        {
+          "key": "SERIE1",
+          "label": "Serie 1",
+          "kind": "serial",
+          "port": 3204,
+          "enabled": true,
+          "policy": "reserved",
+          "cableSerial": null,
+          "consoleKey": "UART1",
+          "targetHost": null,
+          "targetPort": null
+        },
+        {
+          "key": "ETH",
+          "label": "Ethernet",
+          "kind": "tcp",
+          "port": 3205,
+          "enabled": true,
+          "policy": "reserved",
+          "cableSerial": null,
+          "consoleKey": null,
+          "targetHost": "127.0.0.4",
+          "targetPort": 2222
+        }
+      ]
+    },
+    {
+      "name": "Equipo A #02",
+      "serialNumber": null,
+      "description": "Equipo simulado del banco (consolas ttyV2 y ttyV3, sin relés)",
+      "templateName": "Equipo con 2 consolas",
+      "roles": [],
+      "consoles": [
+        {
+          "key": "UART0",
+          "label": "UART0",
+          "line": {
+            "baudRate": 115200,
+            "dataBits": 8,
+            "parity": "none",
+            "stopBits": 1,
+            "flowControl": "none"
+          },
+          "enterMode": "cr",
+          "localEcho": false,
+          "hupcl": false,
+          "captureToDisk": true,
+          "identify": {
+            "hostnameRegex": "uart0"
+          },
+          "binding": {
+            "matchBy": "path",
+            "bindingKey": "virtual:${SIM_DIR}/ttyV2",
+            "byId": null,
+            "byPath": null,
+            "usbVendorId": null,
+            "usbProductId": null,
+            "usbSerial": null,
+            "usbInterface": null,
+            "usbPortNumber": null,
+            "usbIdPath": null,
+            "devicePath": "${SIM_DIR}/ttyV2",
+            "adapterLabel": "ttyV2 (virtual)",
+            "lastDevNode": "${SIM_DIR}/ttyV2"
+          }
+        },
+        {
+          "key": "UART1",
+          "label": "UART1",
+          "line": {
+            "baudRate": 115200,
+            "dataBits": 8,
+            "parity": "none",
+            "stopBits": 1,
+            "flowControl": "none"
+          },
+          "enterMode": "cr",
+          "localEcho": false,
+          "hupcl": false,
+          "captureToDisk": true,
+          "identify": {
+            "hostnameRegex": "uart1"
+          },
+          "binding": {
+            "matchBy": "path",
+            "bindingKey": "virtual:${SIM_DIR}/ttyV3",
+            "byId": null,
+            "byPath": null,
+            "usbVendorId": null,
+            "usbProductId": null,
+            "usbSerial": null,
+            "usbInterface": null,
+            "usbPortNumber": null,
+            "usbIdPath": null,
+            "devicePath": "${SIM_DIR}/ttyV3",
+            "adapterLabel": "ttyV3 (virtual)",
+            "lastDevNode": "${SIM_DIR}/ttyV3"
+          }
+        }
+      ],
+      "relays": []
+    },
+    {
+      "name": "Equipo C #01",
+      "serialNumber": null,
+      "description": "Equipo simulado sin adaptador asignado y sin relés",
+      "templateName": null,
+      "roles": [],
+      "consoles": [
+        {
+          "key": "CONSOLA",
+          "label": "CONSOLA",
+          "line": {
+            "baudRate": 115200,
+            "dataBits": 8,
+            "parity": "none",
+            "stopBits": 1,
+            "flowControl": "none"
+          },
+          "enterMode": "cr",
+          "localEcho": false,
+          "hupcl": false,
+          "captureToDisk": true,
+          "identify": {},
+          "binding": null
+        }
+      ],
+      "relays": []
+    }
+  ],
+  "cableLabels": [
+    {
+      "kind": "jtag",
+      "identity": "210299ABCD01",
+      "name": "JTAG-01",
+      "notes": "Banco simulado"
+    },
+    {
+      "kind": "jtag",
+      "identity": "210299ABCD02",
+      "name": "JTAG-02",
+      "notes": null
+    }
+  ]
+}

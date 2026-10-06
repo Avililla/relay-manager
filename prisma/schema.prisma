@@ -1,12 +1,35 @@
+// Relay Manager 3. SQLite via @prisma/adapter-better-sqlite3.
+// Enum-like String columns are validated by zod (src/lib/contracts/enums.ts).
+
 generator client {
-  provider = "prisma-client-js"
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
 }
 
 datasource db {
   provider = "sqlite"
 }
 
-// Roles (actúan como tenants para filtrar acceso a equipos)
+model User {
+  id                 String      @id @default(cuid())
+  username           String      @unique // lowercase, ^[a-z0-9][a-z0-9._-]{1,31}$
+  name               String
+  email              String?
+  passwordHash       String // bcrypt, cost 12
+  isAdmin            Boolean     @default(false)
+  disabled           Boolean     @default(false)
+  mustChangePassword Boolean     @default(false)
+  sessionVersion     Int         @default(1) // bump to invalidate every session of the user
+  lastLoginAt        DateTime?
+  theme              String? // dark | light | system | rosa (ThemePrefSchema); null = never chosen (D39)
+  roles              Role[]      @relation("UserRoles")
+  reservations       Equipment[] @relation("Reservations")
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+}
+
+// Roles restrict equipment visibility. Equipment without roles is visible to everyone.
 model Role {
   id          String      @id @default(cuid())
   name        String      @unique
@@ -17,87 +40,278 @@ model Role {
   updatedAt   DateTime    @updatedAt
 }
 
-// Usuarios del sistema
-model User {
-  id              String      @id @default(cuid())
-  email           String      @unique
-  password        String
-  name            String
-  isAdmin         Boolean     @default(false)
-  roles           Role[]      @relation("UserRoles")
-  lockedEquipments Equipment[] @relation("EquipmentLock")
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-}
-
-// Placas de relés Devantech (8 relés por placa)
-model RelayBoard {
+// Copied preset. Editing it never changes existing equipment.
+model EquipmentTemplate {
   id          String      @id @default(cuid())
-  name        String
-  ipAddress   String      @unique
-  totalRelays Int         @default(8)
-  relayState  String      @default("00000000") // Estado de los 8 relés: 0=off, 1=on
+  key         String?     @unique // the key of its profile file ("equipo-a"); null for templates made in the app
+  name        String      @unique
+  description String?
+  source      String      @default("local") // local|file (file: <perfil>/plantillas/*.json, read-only in the app)
+  sourceFile  String? // "plantillas/equipo-a.json" (relative to the profile dir) for source "file"
+  retiredAt   DateTime? // source "file" whose file is gone («Retirada»): kept, never offered for new equipment
+  needsReview Boolean     @default(false) // "Revisar" chip (placeholder values)
+  spec        Json // TemplateSpec v1 (src/lib/contracts/templates.ts)
+  position    Int         @default(0)
   equipments  Equipment[]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 }
 
-// Tipos de equipo - CONFIGURABLES
-model EquipmentType {
-  id              String      @id @default(cuid())
-  name            String      @unique
-  description     String?
-  relayCount      Int
-  relayConfig     String
-  serialPortCount Int         @default(0) // Número de puertos serial (placas Zynq)
-  equipments      Equipment[]
-  createdAt       DateTime    @default(now())
-}
-
-// Equipos asignados a placas
-// Si roles está vacío = visible para todos
 model Equipment {
-  id            String        @id @default(cuid())
-  name          String
-  description   String?
-  serialNumber  String?
-  typeId        String
-  type          EquipmentType @relation(fields: [typeId], references: [id])
-  boardId       String
-  board         RelayBoard    @relation(fields: [boardId], references: [id])
-  startRelay    Int
-  order         Int
-  roles         Role[]        @relation("EquipmentRoles")
-  serialPorts   SerialPort[]
-  // Campos de bloqueo
-  lockedById    String?
-  lockedBy      User?         @relation("EquipmentLock", fields: [lockedById], references: [id])
-  lockedAt      DateTime?
-  lockExpiresAt DateTime?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id                   String             @id @default(cuid())
+  name                 String             @unique
+  serialNumber         String?
+  description          String?
+  position             Int                @default(0)
+  templateId           String?
+  template             EquipmentTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  templateName         String? // snapshot at creation, kept if the template is deleted
+  roles                Role[]             @relation("EquipmentRoles")
+  consoles             SerialConsole[]
+  relays               RelayChannel[]
+  accesses             EquipmentAccess[]
+  sshProfile           EquipmentSshProfile?
+  // Reservation (server-authoritative; history lives in AuditEvent)
+  reservedById         String?
+  reservedBy           User?              @relation("Reservations", fields: [reservedById], references: [id], onDelete: SetNull)
+  reservedAt           DateTime?
+  reservationExpiresAt DateTime?
+  reservationNote      String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
 
-  @@unique([boardId, startRelay])
+  @@index([reservedById])
 }
 
-// Puertos serial para placas Zynq dentro de equipos
-model SerialPort {
+model SerialConsole {
+  id                    String    @id @default(cuid())
+  equipmentId           String
+  equipment             Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  position              Int // 0-based order inside the equipment
+  key                   String // "UART0", ^[A-Z][A-Z0-9_]{0,23}$
+  label                 String
+  // Line settings
+  baudRate              Int       @default(115200)
+  dataBits              Int       @default(8) // 5..8
+  parity                String    @default("none") // none|even|odd|mark|space
+  stopBits              Int       @default(1) // 1|2
+  flowControl           String    @default("none") // none|rtscts|xonxoff
+  enterMode             String    @default("cr") // what Enter sends: cr|lf|crlf
+  localEcho             Boolean   @default(false)
+  hupcl                 Boolean   @default(false) // drop DTR on close
+  captureToDisk         Boolean   @default(true)
+  identifyHostnameRegex String?
+  identifyBannerRegex   String?
+  // Binding (all null = unbound)
+  matchBy               String? // adapter|usb-port|path
+  bindingKey            String?   @unique // stableKey of the device at bind time; prevents double binding
+  byId                  String? // canonical /dev/serial/by-id/... (host view)
+  byPath                String? // canonical /dev/serial/by-path/...
+  usbVendorId           String? // "0403"
+  usbProductId          String? // "6011"
+  usbSerial             String? // "FT4ABCDE"
+  usbInterface          Int? // bInterfaceNumber
+  usbPortNumber         Int? // usb-serial port_number
+  usbIdPath             String? // "pci-0000:00:14.0-usb-0:3.1:1.2"
+  devicePath            String? // literal path for matchBy=path (virtual/ttyS)
+  adapterLabel          String? // "FTDI Quad RS232-HS (FT4ABCDE) · B"
+  lastDevNode           String? // informative, canonical /dev/ttyUSBn
+  lastSeenAt            DateTime?
+  // Manual port release ("Soltar puerto")
+  releasedAt            DateTime?
+  releasedById          String?
+  releasedByName        String?
+  releaseUntil          DateTime? // null = until "Retomar"
+  accesses              EquipmentAccess[]
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([equipmentId, position])
+  @@unique([equipmentId, key])
+}
+
+/// A network access of an equipment on its own fixed TCP port (RM_ACCESS_PORTS): JTAG through hw_server, a serial
+/// console over raw TCP, or a TCP forward to the equipment (Ethernet).
+model EquipmentAccess {
+  id              String         @id @default(cuid())
+  equipmentId     String
+  equipment       Equipment      @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  position        Int // 0-based order inside the equipment
+  key             String // "JTAG_SEC", ^[A-Z][A-Z0-9_]{0,23}$
+  label           String
+  kind            String // jtag|serial|tcp
+  port            Int            @unique // listen port
+  enabled         Boolean        @default(true)
+  policy          String         @default("reserved") // reserved|always
+  jtagCableSerial String? // kind jtag: cable serial (hw_server jtag-port-filter)
+  consoleId       String? // kind serial: a console of the same equipment
+  console         SerialConsole? @relation(fields: [consoleId], references: [id], onDelete: SetNull)
+  targetHost      String? // kind tcp (switch mode: null = the equipment IP of "Red de equipos")
+  targetPort      Int? // kind tcp
+  targetMode      String         @default("ip") // kind tcp: ip (targetHost:targetPort) | switch (a port of the equipment switch)
+  switchPort      Int? // kind tcp, targetMode switch: the switch port the equipment's Ethernet is plugged into
+  sshUser         String? // kind tcp: user shown in the ssh/scp commands to copy ("root")
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@unique([equipmentId, key])
+  @@index([consoleId])
+}
+
+/// A named cable of the inventory ("Cables"): what is written on its sticker.
+model CableLabel {
   id          String    @id @default(cuid())
-  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
-  equipmentId String
-  boardIndex  Int       // Índice de la placa Zynq dentro del equipo (0, 1, 2...)
-  serialId    String?   // ID único USB (ej: "/dev/serial/by-id/usb-FTDI_...")
-  label       String?   // Nombre descriptivo (ej: "Placa 1")
-  baudRate    Int       @default(115200)
+  kind        String // jtag|serial-adapter|net-adapter
+  identity    String // jtag: cable serial; serial-adapter: "vid:pid:serial" or "loc:<USB location>"; net-adapter: MAC
+  name        String // "JTAG-07"; unique per kind (case-insensitive, checked by the service)
+  notes       String?
+  vendorId    String?
+  productId   String?
+  product     String?
+  firstSeenAt DateTime  @default(now())
+  lastSeenAt  DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  @@unique([equipmentId, boardIndex])
+  @@unique([kind, identity])
+  @@unique([kind, name])
 }
 
-// Configuración global del sistema
+model RelayBoard {
+  id         String         @id @default(cuid())
+  name       String         @unique
+  driver     String // devantech-ds-http|devantech-ds-ascii|devantech-eth|simulated
+  host       String // IPv4 or RFC-1123 hostname, no scheme/port/path
+  httpPort   Int            @default(80)
+  tcpPort    Int? // default per driver: 17123 (ds-ascii), 17494 (eth)
+  model      String? // "dS378", "ETH008"
+  moduleId   Int?
+  mac        String?        @unique // lowercase aa:bb:cc:dd:ee:ff
+  relayCount Int // PHYSICAL relays (1..32)
+  options    Json? // BoardOptions (src/lib/contracts/relays.ts)
+  username   String?
+  password   String? // plain text; never sent to the client (hasPassword only)
+  enabled    Boolean        @default(true)
+  // Runtime cache (written only when it changes)
+  online     Boolean        @default(false)
+  lastSeenAt DateTime?
+  lastError  String?
+  relayState String         @default("") // "0101..." length = relayCount, index 0 = channel 1
+  channels   RelayChannel[]
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  @@unique([host, httpPort])
+}
+
+model RelayChannel {
+  id             String     @id @default(cuid())
+  equipmentId    String
+  equipment      Equipment  @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  boardId        String
+  board          RelayBoard @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  channel        Int // 1-based on the board
+  position       Int // 0-based order inside the equipment
+  key            String? // template slot key, e.g. "POWER"
+  label          String
+  purpose        String     @default("generic") // power|reset|mode|generic
+  requireConfirm Boolean    @default(false)
+  defaultPulseMs Int?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@unique([boardId, channel])
+  @@unique([equipmentId, position])
+}
+
+// Append-only (triggers created by ensureDbInvariants). No FKs: survives deletes.
+model AuditEvent {
+  id            Int      @id @default(autoincrement())
+  at            DateTime @default(now())
+  actorKind     String   @default("user") // user|system|cli
+  actorId       String?
+  actorName     String // username snapshot, "sistema" or "cli"
+  ip            String?
+  action        String // AuditAction (src/lib/contracts/audit.ts)
+  outcome       String   @default("ok") // ok|denied|error
+  equipmentId   String?
+  equipmentName String?
+  targetType    String? // console|relay|board|user|role|template|equipment|settings|backup|discovery|port|config|session
+  targetId      String?
+  targetName    String?
+  detail        Json?
+
+  @@index([at])
+  @@index([equipmentId, at])
+  @@index([actorId, at])
+  @@index([action, at])
+}
+
 model Settings {
-  id               String @id @default("global")
-  lockTimeoutMins  Int    @default(30) // Tiempo de bloqueo en minutos
-  warningBeforeMins Int   @default(5)  // Minutos antes de mostrar warning
+  id                    String    @id @default("global")
+  labName               String    @default("Relay Manager")
+  bannerText            String? // optional classification/marking strip, off when null
+  reservationTimeoutMin Int       @default(30)
+  reservationWarningMin Int       @default(5)
+  captureRetentionDays  Int       @default(30)
+  captureMaxTotalMb     Int       @default(2048)
+  captureMaxFileMb      Int       @default(64)
+  inputCapture          String    @default("markers") // markers|full
+  auditRetentionDays    Int       @default(365)
+  auditPurgeUnlocked    Boolean   @default(false) // internal guard for the append-only trigger
+  backupDailyEnabled    Boolean   @default(true)
+  backupDailyHour       Int       @default(3) // server local hour 0..23
+  backupRetentionCount  Int       @default(14)
+  setupCompletedAt      DateTime?
+  updatedById           String?
+  updatedAt             DateTime  @updatedAt
+}
+
+/// "Archivos › Enviar a equipo": what the bench remembers about the SSH login of one equipment. The user, password
+/// (sealed with AES-256-GCM, key derived from the app secret; never sent to the browser) and destination path are
+/// stored only when someone ticks «Recordar para este equipo»; the host key fingerprint is recorded on every
+/// successful login (all equipment share one IP, so keys are never pinned by address: a change is only a warning).
+model EquipmentSshProfile {
+  equipmentId        String    @id
+  equipment          Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  remembered         Boolean   @default(false)
+  username           String?
+  password           String? // "v1:<iv>:<tag>:<data>" (src/server/equipnet/secret.ts, own HKDF info)
+  destPath           String?
+  hostKeyType        String?
+  hostKeyFingerprint String? // "SHA256:<base64>" as OpenSSH prints it
+  hostKeySeenAt      DateTime?
+  updatedById        String?
+  updatedAt          DateTime  @updatedAt
+}
+
+/// "Red de equipos" (single row): the USB network adapter wired to the equipment switch, the switch and the addresses.
+/// Every equipment has the same IP; each switch port n is its own 802.1Q VLAN (vlanBase + n) and the server reaches it
+/// through a VLAN interface rmv<vid> with its own host address and policy routing (src/server/equipnet).
+model EquipmentNetwork {
+  id              String    @id @default("global")
+  enabled         Boolean   @default(false) // VLAN interfaces and routing on the server
+  autoDetect      Boolean   @default(true) // look for a switch on a free USB adapter with link (management address)
+  adapterMac      String? // lowercase aa:bb:cc:dd:ee:ff of the USB adapter (its label lives in CableLabel net-adapter)
+  driver          String    @default("tplink-easy-smart") // tplink-easy-smart|manual
+  switchHost      String? // IPv4 of the switch management
+  switchUsername  String?
+  switchPassword  String? // AES-256-GCM, key derived from the app secret ("v1:iv:tag:data"); never sent to the client
+  switchModel     String?
+  switchFirmware  String?
+  switchMac       String?
+  portCount       Int       @default(8)
+  uplinkPort      Int       @default(1) // the port wired to this server (untagged VLAN 1 = switch management)
+  vlanBase        Int       @default(100) // port n = VLAN vlanBase + n
+  mgmtAddress     String    @default("192.168.0.250/24") // the server's address for the switch management (untagged)
+  equipmentIp     String? // the IP every equipment has (null: not configured yet; RM_EQUIPNET_EQUIPMENT_IP seeds it)
+  equipmentPrefix Int       @default(24)
+  hostOffset      Int       @default(200) // the server's address in VLAN of port n: <subnet> + hostOffset + n
+  appliedAt       DateTime?
+  appliedLayout   Json? // the 802.1Q layout last applied by the app (drift check)
+  previousConfig  Json? // the 802.1Q state before the last change by the app ("Restaurar configuración anterior")
+  previousAt      DateTime?
+  backupFile      String? // switch config backup (<datos>/equipnet/…cfg, 0600) taken before the last change
+  updatedById     String?
+  updatedAt       DateTime  @updatedAt
 }

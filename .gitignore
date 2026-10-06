@@ -12,13 +12,23 @@
 
 # testing
 /coverage
+/test-results
 
 # next.js
 /.next/
+/.next
+/.next-*
 /out/
 
 # production
 /build
+/dist
+
+# runtime data, generated code and local config
+/.data*
+/src/generated
+/config.env
+/prisma/*.db*
 
 # misc
 .DS_Store
@@ -30,13 +40,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files
+/.env*
 .env*
-!.env.example
-
-# database
-prisma/*.db
-prisma/*.db-journal
 
 # logs
 *.log
@@ -46,4 +52,26 @@ prisma/*.db-journal
 
 # typescript
 *.tsbuildinfo
-next-env.d.ts
+/next-env.d.ts
+
+# worktrees temporales de agentes
+/.claude/
+
+# Configuración del proyecto (perfil): vive FUERA del repositorio y nunca se sube.
+# Solo el ejemplo genérico de examples/ se versiona (ver la negación al final).
+/perfil/
+/perfil-*/
+/relay-manager-perfil-*/
+/plantillas/
+/tools/
+/herramientas/
+/*.env
+**/perfil.env
+# marcadores propios del proyecto para la comprobación de marcadores (test/marcadores.test.ts)
+/.marcadores-proyecto
+# salidas de los manuales y carpetas de trabajo de las capturas
+/docs/**/*.pdf
+/manuales/
+/rm-manuales-*/
+# El perfil de ejemplo genérico sí se versiona (perfil.env incluido).
+!/examples/**/perfil.env

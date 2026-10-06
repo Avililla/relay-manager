@@ -1,0 +1,72 @@
+[Unit]
+Description=Relay Manager: banco de pruebas (consolas serie, placas de relés y accesos de red)
+Documentation=file:///opt/relay-manager/current/docs/OPERACION.md
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=relay-manager
+Group=relay-manager
+SupplementaryGroups=dialout relay-files
+Environment=NODE_ENV=production
+Environment=NODE_OPTIONS=--enable-source-maps
+Environment=RM_MODE=native
+Environment=RM_CONFIG=/etc/relay-manager/config.env
+Environment=RM_APP_DIR=/opt/relay-manager/current/app
+WorkingDirectory=/opt/relay-manager/current/app
+ExecStart=/opt/relay-manager/current/node/bin/node /opt/relay-manager/current/app/server.js start
+Restart=on-failure
+RestartSec=3
+RestartSteps=6
+RestartMaxDelaySec=120
+RestartPreventExitStatus=2 3 4 5
+KillMode=mixed
+TimeoutStopSec=15
+StateDirectory=relay-manager
+StateDirectoryMode=0750
+RuntimeDirectory=relay-manager
+RuntimeDirectoryPreserve=yes
+UMask=0027
+NoNewPrivileges=yes
+ProtectSystem=strict
+# «Copiar a una carpeta del servidor»: as the service, it can write on removable media and manual mounts when their
+# permissions let it (a desktop automount under /media/<user> usually does not: then «como administrador (sudo)»
+# through relay-manager-rootcopy). The '-' prefix: a folder that does not exist is ignored. Sticks mounted later by
+# relay-manager-rootmount (in the host's mount namespace) propagate into this unit's namespace (systemd makes it a
+# slave of the host): vfat/exfat/ntfs ones are mounted with the relay-files group, so the service writes there itself.
+ReadWritePaths=-/media -/run/media -/mnt
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=no
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+# AF_INET/AF_INET6 and no IPAddressDeny=: outgoing TCP is allowed, which the profile's download script
+# (RM_EXPORT_DOWNLOADER in /etc/relay-manager/perfil, a child of the service) may need to reach its server.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+# Red de equipos: CAP_NET_ADMIN (only that) lets the service create its VLAN interfaces rmv<vid>, their addresses and
+# its own policy routing (tables and rules 20000-24094) on the chosen USB-Ethernet adapter, with iproute2 (ip). It never
+# touches the lab NIC, the default route or the main table. Without these two lines only that automatic setup stops:
+# the web then lists the ip commands to run as root. Child processes (ip, hw_server) inherit it.
+CapabilityBoundingSet=CAP_NET_ADMIN
+AmbientCapabilities=CAP_NET_ADMIN
+ProtectKernelLogs=yes
+ProtectHostname=yes
+ProtectProc=invisible
+SystemCallArchitectures=native
+RemoveIPC=yes
+# Do NOT add: PrivateDevices=yes, PrivateNetwork=yes, ProtectClock=yes (implies DeviceAllow and
+# blocks /dev/ttyUSB*), DevicePolicy=closed, MemoryDenyWriteExecute=yes (breaks V8 JIT),
+# EnvironmentFile= (config is read by the app).
+# Accesses: hw_server (child process, own process group) opens the JTAG cables through /dev/bus/usb
+# (udev rule: group dialout) and writes only under StateDirectory (HOME and TMPDIR = <datos>/xilinx).
+# ProtectHome hides /home: install Vivado Lab under /tools/Xilinx or /opt/Xilinx, or set RM_HW_SERVER.
+
+[Install]
+WantedBy=multi-user.target

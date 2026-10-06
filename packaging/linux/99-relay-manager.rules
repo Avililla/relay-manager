@@ -1,0 +1,18 @@
+# /etc/udev/rules.d/99-relay-manager.rules (Relay Manager). Recargar con:
+#   sudo udevadm control --reload && sudo udevadm trigger --action=change --subsystem-match=tty --subsystem-match=usb-serial --subsystem-match=usb
+ACTION=="remove", GOTO="relay_manager_end"
+SUBSYSTEM=="usb-serial", DRIVER=="ftdi_sio", ATTR{latency_timer}="1"
+# Cables JTAG para los accesos (hw_server los abre por /dev/bus/usb): grupo dialout 0660, como las reglas
+# 52-xilinx-*.rules de Xilinx. La Platform Cable USB II necesita además su firmware (install_drivers de Xilinx).
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="03fd", GROUP="dialout", MODE="0660"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="1443", GROUP="dialout", MODE="0660"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="0403", ATTR{manufacturer}=="Digilent", GROUP="dialout", MODE="0660"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="0403", ATTR{product}=="*JTAG*", GROUP="dialout", MODE="0660"
+SUBSYSTEM!="tty", GOTO="relay_manager_end"
+KERNEL!="ttyUSB[0-9]*|ttyACM[0-9]*", GOTO="relay_manager_end"
+GROUP="dialout", MODE="0660"
+# ModemManager envía comandos AT a los ttyACM: eso detiene el autoarranque de U-Boot.
+ENV{ID_MM_DEVICE_IGNORE}="1"
+# Nombres fijos opcionales para uso humano (picocom/minicom). La aplicación no depende de ellos.
+# ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6011", ATTRS{serial}=="FT4ABCDE", ENV{ID_USB_INTERFACE_NUM}=="00", SYMLINK+="banco/equipo-a-01/UART0"
+LABEL="relay_manager_end"

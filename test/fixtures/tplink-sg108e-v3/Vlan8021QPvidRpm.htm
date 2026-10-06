@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<script>
+var pvid_ds = {
+state:0,
+portNum:8,
+vids:[
+
+],
+count:0,
+mbrs:[
+
+],
+pvids:[
+1,1,1,1,1,1,1,1
+],
+lagIds:[
+0,0,0,0,0,0,0,0
+],
+lagMbrs:[
+0,0x0,0x0
+]
+};var tip = "";
+</script>
+<html> <head> <script>document.write(top.Abbrev);</script><script type=text/javascript>function get_selPbm(){var e,r=0;for(e=1;portNum>=e;e++)1==$id("sel_"+e).checked&&(r|=1<<e-1);return r}function chkLagMbrs(e){var r=qvLagMbrs[qvLagIds[e-1]];if(r)for(var t=$id("sel_"+e).checked,s=1,i=1;portNum>=i;i++)s&r&&($id("sel_"+i).checked=t),s<<=1,s>>>=0}function chk_errCfg(){var e,r,t="Port ",s=0,i=0,d=get_selPbm(),n=$id("t_pvid").value-"0";for(e=0;e<pvid_ds.count;e++)if(n==pvid_ds.vids[e])for(r=0;portNum>r;r++)d&1<<r&&!(pvid_ds.mbrs[e]&1<<r)&&(t+=r+1+",",s++);else i++;return{misVid:i,errPorts:t,errCount:s}}function chk_pvid(){var e=$id("t_pvid").value-"0",r=/^\s*$/;return r.test($id("t_pvid").value)?(alert("Please input a PVID."),-1):(r=/[A-Za-z]/,r.test($id("t_pvid").value)?(alert("PVID is illegal."),-1):e>=1&&4094>=e?0:(alert("PVID is out of range."),-1))}function chk_portCnt(){for(var e=0,r=1;portNum>=r;r++)1==$id("sel_"+r).checked&&e++;return 0==e?-1:0}function setPvid(){var e=$id("t_pvid").value-"0";if(pvid_ds.state){var r;if(0!=chk_pvid())return!1;if(0!=chk_portCnt())return alert("Please select at least one port."),!1;if(r=chk_errCfg(),r.errCount)alert(r.errPorts.substr(0,r.errPorts.length-1)+" is not member of VLAN "+e+"!");else{if(r.misVid!=pvid_ds.count)return location.href="vlanPvidSet.cgi?pbm="+get_selPbm()+"&pvid="+e,!0;alert("VLAN "+e+" doesn't exist.")}}else alert("802.1Q VLAN should be enabled before setting PVID!");return!1}function doSelAll(){for(var e=$id("selAll").checked,r=1;portNum>=r;r++)$id("sel_"+r).checked=e;return!0}incMeta(),incCss("main.css"),incCss("help.css"),incJs("tips.js"),incJs("ui.js"),incJs("help.js");var portNum=pvid_ds.portNum,qvLagIds=pvid_ds.lagIds,qvLagMbrs=pvid_ds.lagMbrs;</script><body> <div id=div_tip_mask class=TIP_MASK> <div id=div_tip_svr class=TIP><span id=sp_tip_svr class=TIP_CONTENT></span></div> </div> <fieldset> <legend>802.1Q VLAN PVID Setting</legend> <div id=div_sec_title> <table class=BORDER> <tr class=TABLE_HEAD> <td class=TD_FIRST_COL width=100px>Select <td class=TD_FIRST_COL width=100px>Port <td class=TD_FIRST_COL width=100px>PVID  <tr class=TABLE_HEAD> <td><input type=checkbox id=selAll name=selAll onclick=doSelAll()> <td> <td><input id=t_pvid size=4 maxlength=4 name=pvid>  <script type=text/javascript>for(var lagPort,i=1;i<=portNum;i++)lagPort="Port "+i,qvLagIds[i-1]&&(lagPort+=" (LAG"+qvLagIds[i-1]+")"),docW("<tr>"),docW("<td><input type=checkbox name=sel_"+i+" id=sel_"+i+' onClick="chkLagMbrs('+i+');" value=1></td>'),docW("<td>"+lagPort+"</td>"),docW("<td>"+pvid_ds.pvids[i-1]+"</td>"),docW("</tr>");</script></table><table class=BTN_WRAPPER align=center> <tr> <td class=BTN_WRAPPER> <a class=BTN> <input type=button value=Apply name=apply class=BTN_NORMAL_BTN onclick="return setPvid()"> </a>  <td class=SBLANK> <td> <a class=BTN> <input type=button value=Help name=help class=BTN_NORMAL_BTN onclick="doShowHelp(&quot;div_sec_title&quot;,&quot;div_help_lan_svr&quot;,&quot;Vlan8021QPVIDHelpRpm.htm&quot;)"> </a>   </table> <table class=BOTTOM_LINE> <tr><td class=BOTTOM_LINE> <tr><td><span class=BOLDER>Note:</span> <tr><td><span class=NORMAL>1. By default, the PVID of all ports is 1.</span> <tr><td><span class=NORMAL>2. 802.1Q VLAN PVID will be restored to 1 when 802.1Q VLAN is disabled.</span> </table> </div></fieldset> <script>ShowHelp('<span class="HELP_TITLE" id="t_help_title">802.1Q VLAN PVID Setting</span> ');</script><script>window.onload=function(){new Drag("div_help_lan_svr","div_help_lan_svr")},""!=tip&&(ShowTips("sp_tip_svr",tip),startDownScroll("div_tip_svr"));</script>

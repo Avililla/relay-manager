@@ -1,0 +1,17 @@
+[Unit]
+Description=Relay Manager: socket del ayudante «Copiar como administrador (sudo)»
+Documentation=file:///opt/relay-manager/current/docs/INSTALACION.md
+
+[Socket]
+# Only the service user (group relay-manager) can connect: root:relay-manager 0660 in a directory of its own (not the
+# service's RuntimeDirectory, which systemd hands to the relay-manager user when the service starts).
+ListenStream=/run/relay-manager-rootcopy/rootcopy.sock
+SocketUser=root
+SocketGroup=relay-manager
+SocketMode=0660
+DirectoryMode=0755
+Accept=no
+MaxConnections=16
+
+[Install]
+WantedBy=sockets.target

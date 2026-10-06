@@ -1,0 +1,47 @@
+[Unit]
+Description=Relay Manager: ayudante «Montar / Expulsar pendrives» (root)
+Documentation=file:///opt/relay-manager/current/docs/INSTALACION.md
+Requires=relay-manager-rootmount.socket
+After=relay-manager-rootmount.socket
+
+[Service]
+# Started by relay-manager-rootmount.socket (root:root 0600: only relay-manager-rootcopy connects, after authenticating
+# the password of RM_SUDO_USER or an elevation token). It mounts a REMOVABLE device (sysfs removable flag or USB; never
+# a disk with a partition mounted outside /media, /run/media or /mnt, swap, LVM/RAID/crypt; the device path matched
+# against /dev/sd*, /dev/mmcblk*, /dev/nvme*) at /media/<RM_SUDO_USER>/<label> with nosuid,nodev,noexec (FAT, exFAT,
+# NTFS: uid=<sudo user>, gid=relay-files, umask 0002), and unmounts such mounts under /media. Exits after 2 minutes idle.
+Type=simple
+ExecStart=/opt/relay-manager/current/node/bin/node /opt/relay-manager/current/app/rootcopy.js mount
+Environment=NODE_ENV=production
+Restart=no
+TimeoutStopSec=15
+UMask=0022
+StateDirectory=relay-manager-rootmount
+StateDirectoryMode=0700
+NoNewPrivileges=yes
+# NO private mount namespace, on purpose: a mount made inside one (ProtectSystem=, ProtectHome=, PrivateTmp=,
+# PrivateDevices=, ReadWritePaths=, ProtectKernel*=, ProtectControlGroups=, ProtectProc=, ProcSubset=, PrivateMounts=,
+# BindPaths=, TemporaryFileSystem=… all create one, and MountFlags=shared cannot undo the slave propagation they set
+# up) would never reach the host nor the main service. That is why this is a unit of its own: the copy helper keeps
+# ProtectSystem=strict as the hard limit of where root writes, and this one only gets what mount(2) needs.
+# Capabilities: CAP_SYS_ADMIN only (mount/umount). It reads /etc/relay-manager/rootcopy.env, /etc/passwd, /etc/group,
+# blkid opens the device and mkdir happens in root-owned /media folders: root's own permissions suffice, no DAC_*.
+CapabilityBoundingSet=CAP_SYS_ADMIN
+AmbientCapabilities=
+# Block devices: only SCSI/USB disks (sd), SD cards (mmc) and extended partitions (blkext: NVMe, mmc p8+). No FUSE
+# (/dev/fuse): FAT, exFAT and NTFS are mounted with the kernel drivers (mount -i, ntfs3).
+DevicePolicy=closed
+DeviceAllow=block-sd rw
+DeviceAllow=block-mmc rw
+DeviceAllow=block-blkext rw
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service @mount
+SystemCallFilter=~@swap @reboot @raw-io @module @debug @cpu-emulation @obsolete @clock
+SystemCallErrorNumber=EPERM
+# Not MemoryDenyWriteExecute=yes: it breaks the V8 JIT (node would not start).

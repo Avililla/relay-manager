@@ -1,0 +1,55 @@
+[Unit]
+Description=Relay Manager: ayudante «Copiar como administrador (sudo)»
+Documentation=file:///opt/relay-manager/current/docs/INSTALACION.md
+Requires=relay-manager-rootcopy.socket
+After=relay-manager-rootcopy.socket
+
+[Service]
+# Started by relay-manager-rootcopy.socket on the first connection; exits after 2 minutes without connections.
+# It authenticates EVERY request with the password of RM_SUDO_USER (/etc/relay-manager/rootcopy.env, root-owned), checks
+# the destination again (deny-list, RM_COPY_ROOT_PATHS, no links) and only writes the bytes the service streams to it:
+# it never opens a source path. The main service keeps NoNewPrivileges and its own sandbox; it never runs as root.
+# With the password, it also issues 5-minute elevation tokens (HMAC key in its StateDirectory, 0600) bound to the
+# service's login session, lists folders read-only (entries and metadata, never contents) and relays «Montar» /
+# «Expulsar» to relay-manager-rootmount (/run/relay-manager-rootmount/rootmount.sock, root:root 0600): mounting needs no
+# privilege here (and could not work here: mounts made inside this unit's mount namespace never reach the host).
+Type=simple
+ExecStart=/opt/relay-manager/current/node/bin/node /opt/relay-manager/current/app/rootcopy.js
+Environment=NODE_ENV=production
+Restart=no
+TimeoutStopSec=10
+UMask=0077
+StateDirectory=relay-manager-rootcopy
+StateDirectoryMode=0700
+NoNewPrivileges=yes
+# Read-only everywhere; writable only where removable media is mounted (and what the drop-in adds: RM_COPY_ROOT_PATHS).
+# The '-' prefix: a folder that does not exist is ignored.
+ProtectSystem=strict
+ReadWritePaths=-/media -/run/media -/mnt
+ProtectHome=read-only
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+# Root, but only what writing files for someone else needs: open any folder (DAC_OVERRIDE, DAC_READ_SEARCH), read
+# /etc/shadow, give the file to the folder's owner (CHOWN) and set its mode (FOWNER). No ambient capabilities.
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH CAP_CHOWN CAP_FOWNER
+AmbientCapabilities=
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@mount @swap @reboot @raw-io @module @debug @cpu-emulation @obsolete @clock
+SystemCallErrorNumber=EPERM
+# Not MemoryDenyWriteExecute=yes: it breaks the V8 JIT (node would not start).

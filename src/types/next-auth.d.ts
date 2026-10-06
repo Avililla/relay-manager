@@ -1,35 +1,34 @@
-/**
- * Relay Manager
- *
- * @author Alejandro Avila Marcos
- * Made with ❤️ for dev team Valdepeñas
- */
-
-import { DefaultSession, DefaultUser } from "next-auth"
-import { JWT, DefaultJWT } from "next-auth/jwt"
+import "next-auth"
+import "next-auth/jwt"
 
 declare module "next-auth" {
   interface Session {
     user: {
       id: string
+      username: string
+      name: string
+      email?: string | null
+      image?: string | null
       isAdmin: boolean
       roleIds: string[]
-      roleNames: string[]
-    } & DefaultSession["user"]
+      mustChangePassword: boolean
+    }
   }
 
-  interface User extends DefaultUser {
-    isAdmin: boolean
-    roleIds: string[]
-    roleNames: string[]
+  interface User {
+    username?: string
+    sv?: number
   }
 }
 
 declare module "next-auth/jwt" {
-  interface JWT extends DefaultJWT {
-    id: string
-    isAdmin: boolean
-    roleIds: string[]
-    roleNames: string[]
+  interface JWT {
+    id?: string
+    sv?: number
+    loginAt?: number
+    username?: string
+    isAdmin?: boolean
+    roleIds?: string[]
+    mustChangePassword?: boolean
   }
 }

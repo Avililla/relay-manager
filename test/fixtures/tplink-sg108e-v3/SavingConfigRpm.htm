@@ -1,0 +1,5 @@
+<!DOCTYPE html>
+<script>
+var tip="";
+</script>
+<html> <head> <meta charset="gb2312"> <script>document.write(top.Abbrev);</script><script type=text/javascript>function doSaving(){return confirm(js_confirm_saveconfig="Are you sure to save config?")?($id("t_to_save").innerHTML="Saving Configuration to FLASH......",document.system_act.action_op.value="save",document.system_act.submit(),!0):($id("t_to_save").innerHTML="You cancel the operation.",!1)}incCss("main.css"),incJs("tips.js");</script><body> <div> <div id=autoHeight class=AUTOHEIGHT_MAIN> <fieldset> <legend>Save Config</legend> <div class=SBLANK></div> <div class=container> <span id=t_to_save class="NORMAL center"></span> <table class=BTN_WRAPPER align=center> </table> </div> </fieldset> <form name=system_act action=savingconfig.cgi method=post> <input name=action_op type=hidden> </form> </div> </div>   <script>""!=tip?("Operation successful."==tip?tip="Save the config successfully.":tip="Save the config fail.",$id("t_to_save").innerHTML=tip):doSaving();</script>

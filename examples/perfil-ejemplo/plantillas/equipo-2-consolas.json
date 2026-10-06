@@ -1,0 +1,77 @@
+{
+  "$schema": "../../../docs/plantilla.schema.json",
+  "key": "equipo-2-consolas",
+  "name": "Equipo con 2 consolas",
+  "description": "Dos UART, un cable JTAG por placa y SSH por la red de equipos.",
+  "needsReview": true,
+  "position": 0,
+  "namePattern": "Equipo #{nn}",
+  "skipInterfaces": [],
+  "consoles": [
+    {
+      "key": "UART0",
+      "label": "UART0",
+      "line": {
+        "baudRate": 115200,
+        "dataBits": 8,
+        "parity": "none",
+        "stopBits": 1,
+        "flowControl": "none"
+      },
+      "enterMode": "cr",
+      "localEcho": false,
+      "identify": {
+        "hostnameRegex": "uart0"
+      }
+    },
+    {
+      "key": "UART1",
+      "label": "UART1",
+      "line": {
+        "baudRate": 115200,
+        "dataBits": 8,
+        "parity": "none",
+        "stopBits": 1,
+        "flowControl": "none"
+      },
+      "enterMode": "cr",
+      "localEcho": false,
+      "identify": {
+        "hostnameRegex": "uart1"
+      }
+    }
+  ],
+  "relays": [],
+  "accesses": [
+    {
+      "key": "JTAG0",
+      "label": "JTAG 0",
+      "kind": "jtag"
+    },
+    {
+      "key": "JTAG1",
+      "label": "JTAG 1",
+      "kind": "jtag"
+    },
+    {
+      "key": "SERIE0",
+      "label": "Serie 0",
+      "kind": "serial",
+      "consoleKey": "UART0"
+    },
+    {
+      "key": "SERIE1",
+      "label": "Serie 1",
+      "kind": "serial",
+      "consoleKey": "UART1"
+    },
+    {
+      "key": "ETH",
+      "label": "Ethernet",
+      "kind": "tcp",
+      "targetMode": "switch",
+      "targetPort": 22,
+      "sshUser": "root"
+    }
+  ]
+}

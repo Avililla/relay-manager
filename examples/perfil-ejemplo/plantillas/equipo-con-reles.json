@@ -1,0 +1,43 @@
+{
+  "$schema": "../../../docs/plantilla.schema.json",
+  "key": "equipo-con-reles",
+  "name": "Equipo con relés",
+  "description": "Una consola y dos relés: alimentación (con confirmación) y reset por pulso.",
+  "position": 1,
+  "namePattern": "Equipo R #{nn}",
+  "consoles": [
+    {
+      "key": "CONSOLA",
+      "label": "Consola",
+      "line": {
+        "baudRate": 115200,
+        "dataBits": 8,
+        "parity": "none",
+        "stopBits": 1,
+        "flowControl": "none"
+      }
+    }
+  ],
+  "relays": [
+    {
+      "key": "POWER",
+      "label": "Alimentación",
+      "purpose": "power",
+      "requireConfirm": true
+    },
+    {
+      "key": "RESET",
+      "label": "Reset",
+      "purpose": "reset",
+      "defaultPulseMs": 500
+    }
+  ],
+  "accesses": [
+    {
+      "key": "SERIE",
+      "label": "Serie",
+      "kind": "serial",
+      "consoleKey": "CONSOLA"
+    }
+  ]
+}

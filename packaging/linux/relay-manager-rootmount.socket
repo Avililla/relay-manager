@@ -1,0 +1,17 @@
+[Unit]
+Description=Relay Manager: socket del ayudante «Montar / Expulsar pendrives»
+Documentation=file:///opt/relay-manager/current/docs/INSTALACION.md
+
+[Socket]
+# Only root can connect (root:root 0600, in a 0700 directory of its own): the copy helper relay-manager-rootcopy, after
+# it has authenticated the sudo password or an elevation token. The service (relay-manager user) never reaches it.
+ListenStream=/run/relay-manager-rootmount/rootmount.sock
+SocketUser=root
+SocketGroup=root
+SocketMode=0600
+DirectoryMode=0700
+Accept=no
+MaxConnections=8
+
+[Install]
+WantedBy=sockets.target

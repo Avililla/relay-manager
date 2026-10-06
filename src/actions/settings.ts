@@ -1,72 +1,19 @@
-/**
- * Relay Manager
- *
- * @author Alejandro Avila Marcos
- * Made with ❤️ for dev team Valdepeñas
- */
-
 "use server"
-
+// Settings action (§7.2, W1-C). The W0 settings service validates, writes, publishes settings.changed and audits.
 import { revalidatePath } from "next/cache"
-import { prisma } from "@/lib/prisma"
-import { auth } from "@/lib/auth"
+import { UpdateSettingsInputSchema, type SettingsDTO } from "@/lib/contracts/settings"
+import { defineAction } from "@/server/actions/define-action"
 
-const GLOBAL_SETTINGS_ID = "global"
-
-export async function getSettings() {
-  let settings = await prisma.settings.findUnique({
-    where: { id: GLOBAL_SETTINGS_ID },
-  })
-
-  // Crear configuración por defecto si no existe
-  if (!settings) {
-    settings = await prisma.settings.create({
-      data: {
-        id: GLOBAL_SETTINGS_ID,
-        lockTimeoutMins: 30,
-        warningBeforeMins: 5,
-      },
-    })
-  }
-
-  return settings
-}
-
-export async function updateSettings(data: {
-  lockTimeoutMins: number
-  warningBeforeMins: number
-}) {
-  const session = await auth()
-  if (!session?.user?.isAdmin) {
-    throw new Error("No autorizado")
-  }
-
-  // Validaciones
-  if (data.lockTimeoutMins < 5) {
-    throw new Error("El tiempo de bloqueo mínimo es 5 minutos")
-  }
-  if (data.warningBeforeMins < 1) {
-    throw new Error("El tiempo de aviso mínimo es 1 minuto")
-  }
-  if (data.warningBeforeMins >= data.lockTimeoutMins) {
-    throw new Error("El tiempo de aviso debe ser menor al tiempo de bloqueo")
-  }
-
-  const settings = await prisma.settings.upsert({
-    where: { id: GLOBAL_SETTINGS_ID },
-    update: {
-      lockTimeoutMins: data.lockTimeoutMins,
-      warningBeforeMins: data.warningBeforeMins,
-    },
-    create: {
-      id: GLOBAL_SETTINGS_ID,
-      lockTimeoutMins: data.lockTimeoutMins,
-      warningBeforeMins: data.warningBeforeMins,
-    },
-  })
-
-  revalidatePath("/settings")
-  revalidatePath("/")
-
-  return settings
-}
+export const updateSettings = defineAction(
+  UpdateSettingsInputSchema,
+  { auth: "admin" },
+  async function updateSettings(input, ctx): Promise<SettingsDTO> {
+    const s = await ctx.rt.settings.update(input, ctx.actor)
+    try {
+      revalidatePath("/", "layout")
+    } catch {
+      // outside a request scope (tests): nothing to revalidate
+    }
+    return s
+  },
+)

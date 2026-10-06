@@ -1,0 +1,369 @@
+#!/bin/sh
+# Lanzador de Relay Manager (§9.2). Funciona instalado (/opt/relay-manager/releases/<versión>, modo servicio),
+# desde el paquete extraído (modo portátil: datos en ./data y configuración en ./config.env) y en Docker.
+set -eu
+
+SELF=$(readlink -f "$0")
+ROOT=$(cd "$(dirname "$SELF")/.." && pwd -P)
+NODE="$ROOT/node/bin/node"
+SERVER="$ROOT/app/server.js"
+SERVICE_USER=relay-manager
+PREFIX=/opt/relay-manager
+RELEASES="$PREFIX/releases"
+NATIVE_CONFIG=/etc/relay-manager/config.env
+
+export NODE_ENV=production
+export RM_APP_DIR="$ROOT/app"
+
+# The mode comes from where the launcher lives, never from the config file.
+case "$ROOT/" in
+  "$RELEASES"/*) RM_MODE=native ;;
+  *)
+    if [ "${RM_MODE:-}" = docker ]; then RM_MODE=docker; else RM_MODE=portable; fi
+    ;;
+esac
+export RM_MODE
+
+case "$RM_MODE" in
+  portable) DEFAULT_CONFIG="$ROOT/config.env" ;;
+  native) DEFAULT_CONFIG="$NATIVE_CONFIG" ;;
+  *) DEFAULT_CONFIG=/data/config.env ;;
+esac
+: "${RM_CONFIG:=$DEFAULT_CONFIG}"
+if [ "$RM_CONFIG" = "$DEFAULT_CONFIG" ] && [ ! -e "$RM_CONFIG" ]; then
+  # The file is optional and the loader already defaults to this path: do not name a missing file.
+  unset RM_CONFIG
+else
+  export RM_CONFIG
+fi
+if [ "$RM_MODE" = portable ]; then
+  : "${RM_DATA_DIR:=$ROOT/data}"
+  export RM_DATA_DIR
+fi
+# The project profile («perfil»): the app finds it by itself (RM_PROFILE_DIR in the environment or config.env wins);
+# here only for the help text. Portable: the bundle's perfil/ (next to app/, from RM_APP_DIR).
+case "$RM_MODE" in
+  portable) DEFAULT_PROFILE="$ROOT/perfil" ;;
+  native) DEFAULT_PROFILE=/etc/relay-manager/perfil ;;
+  *) DEFAULT_PROFILE=/perfil ;;
+esac
+
+die() {
+  echo "relay-manager: $*" >&2
+  exit 1
+}
+
+# Docker: the image starts as root only to hand CAP_NET_ADMIN (compose.yaml cap_add, "Red de equipos") to the service
+# user as an ambient capability; Docker gives capabilities to root only. Every command (the server, docker exec, the
+# healthcheck) then runs as relay-manager, with at most CAP_NET_ADMIN, and the supplementary groups of group_add.
+if [ "$RM_MODE" = docker ] && [ "$(id -u)" = 0 ]; then
+  cap_bit() { # <status field> <bit>: 1 when the capability is in that set
+    v=$(sed -n "s/^$1:[[:space:]]*//p" /proc/self/status)
+    [ -n "$v" ] && [ $(((0x$v >> $2) & 1)) = 1 ]
+  }
+  cap_bit CapEff 6 && cap_bit CapEff 7 ||
+    die "el contenedor arranca como root para pasar al usuario relay-manager: añade cap_add: [SETUID, SETGID] (ver compose.yaml) o arráncalo con --user relay-manager (sin la red de equipos automática)"
+  if cap_bit CapPrm 12; then
+    set -- --inh-caps=-all,+net_admin --ambient-caps=-all,+net_admin -- "$SELF" "$@"
+  else
+    set -- --inh-caps=-all --ambient-caps=-all -- "$SELF" "$@"
+  fi
+  groups=$(id -G | tr ' ' '\n' | grep -vx 0 | paste -sd, - || true)
+  if [ -n "$groups" ]; then
+    exec setpriv --reuid=relay-manager --regid=relay-manager --groups="$groups" "$@"
+  fi
+  exec setpriv --reuid=relay-manager --regid=relay-manager --clear-groups "$@"
+fi
+
+usage() {
+  cat <<EOF
+Uso: relay-manager [orden] [opciones]
+
+  start                           inicia el servidor en primer plano (por defecto; el servicio usa esta orden)
+  doctor [--json]                 diagnóstico del sistema (solo lectura)
+  setup-token                     muestra el código de configuración inicial
+  user list|create|reset-password|enable|disable|set-admin …
+  backup [--label <etiqueta>]     copia de seguridad de la base de datos
+  restore <nombre|ruta> [--yes]   restaura una copia (con el servicio detenido)
+  config export [<fichero>] | config import <fichero> [--dry-run]
+  migrate [--dry-run]             aplica las migraciones pendientes (con copia previa)
+  plantillas recargar|comprobar   vuelve a leer las plantillas del perfil (plantillas/*.json) o solo las
+                                  comprueba, sin tocar la base de datos (sale con 1 si alguna tiene errores)
+  ping                            comprueba que el servidor responde
+  version                         muestra la versión
+  status | restart | logs         estado, reinicio y registro del servicio (systemd)
+  rollback [--to <versión>] [--yes]  vuelve a una versión instalada anterior (servicio)
+  red-equipos <MAC> | --quitar    (root) NetworkManager deja en paz el adaptador de la red de equipos
+                                  (y siempre las interfaces rmv*); --quitar deja solo las rmv*
+  help                            esta ayuda
+
+Modo: $RM_MODE · Configuración: ${RM_CONFIG:-$DEFAULT_CONFIG (no existe: valores por defecto)} · Perfil: $(profile_dir)
+EOF
+}
+
+[ -x "$NODE" ] || die "no se encuentra el node incluido en $NODE"
+UID_NOW=$(id -u)
+
+is_service_user() { [ "$(id -un 2>/dev/null || true)" = "$SERVICE_USER" ]; }
+service_user_exists() { id "$SERVICE_USER" >/dev/null 2>&1; }
+
+# Data commands in native mode run as the service user: root drops privileges with setpriv,
+# any other user goes through sudo first.
+run_data() {
+  if [ "$RM_MODE" = native ]; then
+    if [ "$UID_NOW" = 0 ]; then
+      if service_user_exists; then
+        exec setpriv --reuid="$SERVICE_USER" --regid="$SERVICE_USER" --init-groups "$NODE" "$SERVER" "$@"
+      fi
+    elif ! is_service_user; then
+      exec sudo "$SELF" "$@"
+    fi
+  fi
+  exec "$NODE" "$SERVER" "$@"
+}
+
+# Value of a variable from the environment, else from the config file (last KEY= line wins).
+conf_get() {
+  v=$(printenv "$1" 2>/dev/null || true)
+  f=${RM_CONFIG:-$DEFAULT_CONFIG}
+  if [ -z "$v" ] && [ -r "$f" ]; then
+    v=$(sed -n "s/^[[:space:]]*$1=//p" "$f" | tail -n 1 | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/")
+  fi
+  printf '%s' "$v"
+}
+profile_dir() {
+  p=$(conf_get RM_PROFILE_DIR)
+  printf '%s' "${p:-$DEFAULT_PROFILE}"
+}
+data_dir() {
+  d=$(conf_get RM_DATA_DIR)
+  printf '%s' "${d:-/var/lib/relay-manager}"
+}
+backup_dir() {
+  b=$(conf_get RM_BACKUP_DIR)
+  printf '%s' "${b:-$(data_dir)/backups}"
+}
+
+run_restore() {
+  if [ "$RM_MODE" = native ] && [ "$UID_NOW" != 0 ] && ! is_service_user; then
+    exec sudo "$SELF" restore "$@"
+  fi
+  if [ "$RM_MODE" = native ] && [ "$UID_NOW" = 0 ]; then
+    # A path is copied (as root) into the backup directory, owned by the service user, then restored by name.
+    first=1
+    for a in "$@"; do
+      if [ "$first" = 1 ]; then
+        set --
+        first=0
+      fi
+      case "$a" in
+        -*) set -- "$@" "$a" ;;
+        */*)
+          [ -f "$a" ] || die "no existe el fichero $a"
+          bdir=$(backup_dir)
+          name="relay-manager-$(date -u +%Y%m%dT%H%M%SZ)-import.db"
+          install -d -o "$SERVICE_USER" -g "$SERVICE_USER" -m 0750 "$bdir"
+          install -o "$SERVICE_USER" -g "$SERVICE_USER" -m 0640 "$a" "$bdir/$name"
+          echo "Copia importada como $name"
+          set -- "$@" "$name"
+          ;;
+        *) set -- "$@" "$a" ;;
+      esac
+    done
+  fi
+  run_data restore "$@"
+}
+
+wait_ping() {
+  i=0
+  while [ "$i" -lt 60 ]; do
+    if "$1" ping --quiet >/dev/null 2>&1; then return 0; fi
+    i=$((i + 1))
+    sleep 1
+  done
+  return 1
+}
+
+re_escape() { printf '%s' "$1" | sed 's/[].[+*^$\\/]/\\&/g'; }
+
+run_rollback() {
+  [ "$RM_MODE" = native ] || die "rollback solo existe en la instalación como servicio (/opt/relay-manager)"
+  [ "$UID_NOW" = 0 ] || exec sudo "$SELF" rollback "$@"
+  to=""
+  yes=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --to)
+        [ $# -ge 2 ] || die "falta la versión tras --to"
+        to=$2
+        shift 2
+        ;;
+      --to=*)
+        to=${1#--to=}
+        shift
+        ;;
+      --yes)
+        yes=1
+        shift
+        ;;
+      *)
+        echo "relay-manager rollback: opción desconocida: $1" >&2
+        exit 2
+        ;;
+    esac
+  done
+  cur=$(basename "$(readlink -f "$PREFIX/current")")
+  if [ -z "$to" ]; then
+    to=$(find "$RELEASES" -mindepth 1 -maxdepth 1 -type d ! -name '*.tmp' -printf '%f\n' | grep -vxF "$cur" | sort -V | tail -n 1 || true)
+  fi
+  [ -n "$to" ] || die "no hay otra versión instalada a la que volver"
+  [ "$to" != "$cur" ] || die "la versión $to ya es la actual"
+  target="$RELEASES/$to"
+  { [ -x "$target/node/bin/node" ] && [ -f "$target/app/server.js" ]; } || die "no existe la versión $to en $RELEASES"
+
+  echo "==> Vuelta atrás de $cur a $to"
+  systemctl stop relay-manager
+  if ! check=$(setpriv --reuid="$SERVICE_USER" --regid="$SERVICE_USER" --init-groups \
+    env RM_MODE=native RM_CONFIG="$NATIVE_CONFIG" RM_APP_DIR="$target/app" NODE_ENV=production \
+    "$target/node/bin/node" "$target/app/server.js" migrate --dry-run 2>&1); then
+    printf '%s\n' "$check" >&2
+    systemctl start relay-manager || true
+    die "la versión $to no puede leer la base de datos; el servicio sigue en $cur"
+  fi
+  printf '%s\n' "$check" | grep -v '^\s*$' | sed 's/^/    /'
+  if printf '%s\n' "$check" | grep -q "Migraciones desconocidas"; then
+    bdir=$(backup_dir)
+    pattern="^relay-manager-[0-9]{8}T[0-9]{6}Z-pre-upgrade-$(re_escape "$to")-to-$(re_escape "$cur")(-[0-9]+)?\\.db\$"
+    backup=$(find "$bdir" -mindepth 1 -maxdepth 1 -type f -printf '%f\n' 2>/dev/null | grep -E "$pattern" | sort | tail -n 1 || true)
+    if [ -z "$backup" ]; then
+      systemctl start relay-manager || true
+      die "la base de datos usa migraciones que $to no conoce y no hay copia pre-upgrade-$to-to-$cur en $bdir: volver atrás sin ella no es seguro. El servicio sigue en $cur."
+    fi
+    ts=$(printf '%s' "$backup" | sed -E 's/^relay-manager-([0-9]{4})([0-9]{2})([0-9]{2})T([0-9]{2})([0-9]{2})([0-9]{2})Z-.*/\1-\2-\3 \4:\5:\6 UTC/')
+    echo "La versión $to no conoce la base de datos actual: se restaurará $backup (creada el $ts)."
+    echo "Se perderán los cambios hechos después de $ts."
+    if [ "$yes" != 1 ]; then
+      printf '¿Continuar? [s/N] '
+      read -r answer || answer=""
+      case "$answer" in
+        s | S | si | Si | SI | sí | Sí | SÍ) ;;
+        *)
+          systemctl start relay-manager || true
+          die "cancelado: el servicio sigue en $cur"
+          ;;
+      esac
+    fi
+    ln -sfn "releases/$to" "$PREFIX/current"
+    if ! "$target/bin/relay-manager" restore "$backup" --yes; then
+      ln -sfn "releases/$cur" "$PREFIX/current"
+      systemctl start relay-manager || true
+      die "la restauración ha fallado; se mantiene $cur"
+    fi
+  else
+    echo "La versión $to conoce todas las migraciones aplicadas: se cambia sin restaurar datos."
+    ln -sfn "releases/$to" "$PREFIX/current"
+  fi
+  systemctl start relay-manager
+  if wait_ping "$target/bin/relay-manager"; then
+    echo "==> Relay Manager $to en marcha"
+  else
+    journalctl -u relay-manager -n 50 --no-pager || true
+    die "el servicio no responde tras volver a $to"
+  fi
+}
+
+# "Red de equipos": NetworkManager must not manage the app's VLAN interfaces (rmv*) nor the USB adapter wired to the
+# equipment switch (it would drop the addresses the app puts there). One keyfile drop-in, nothing else is touched.
+NM_DROPIN=/etc/NetworkManager/conf.d/90-relay-manager-red-equipos.conf
+
+nm_reload() {
+  if command -v nmcli >/dev/null 2>&1; then
+    nmcli general reload conf >/dev/null 2>&1 || echo "Aviso: nmcli general reload conf ha fallado; se aplicará al reiniciar NetworkManager" >&2
+  elif command -v systemctl >/dev/null 2>&1; then
+    systemctl reload NetworkManager >/dev/null 2>&1 || true
+  fi
+}
+
+run_red_equipos() {
+  [ $# -eq 1 ] || die "uso: sudo relay-manager red-equipos <MAC del adaptador> | --quitar"
+  [ "$UID_NOW" = 0 ] || exec sudo "$SELF" red-equipos "$@"
+  if [ "$1" = --quitar ]; then
+    line="unmanaged-devices=interface-name:rmv*"
+  else
+    mac=$(printf '%s' "$1" | tr 'A-F' 'a-f')
+    # Exactly aa:bb:cc:dd:ee:ff (a case pattern, not grep: a value with a newline must never pass).
+    case "$mac" in
+      [0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]) ;;
+      *) die "MAC no válida: $1 (usa el formato aa:bb:cc:dd:ee:ff)" ;;
+    esac
+    line="unmanaged-devices=interface-name:rmv*;mac:$mac"
+  fi
+  if [ ! -d /etc/NetworkManager ]; then
+    echo "NetworkManager no está instalado en este equipo: no hace falta nada más."
+    return 0
+  fi
+  install -d -m 0755 /etc/NetworkManager/conf.d
+  tmp="$NM_DROPIN.tmp.$$"
+  {
+    echo "# Relay Manager (Red de equipos): NetworkManager no gestiona las interfaces de la aplicación."
+    echo "# Generado por «relay-manager red-equipos»; se borra al desinstalar."
+    echo "[keyfile]"
+    echo "$line"
+  } >"$tmp"
+  chmod 0644 "$tmp"
+  mv -f "$tmp" "$NM_DROPIN"
+  nm_reload
+  if [ "$1" = --quitar ]; then
+    echo "NetworkManager ya solo deja en paz las interfaces rmv* ($NM_DROPIN)."
+  else
+    echo "NetworkManager deja en paz el adaptador $mac y las interfaces rmv* ($NM_DROPIN)."
+  fi
+}
+
+cmd=${1:-start}
+if [ $# -gt 0 ]; then shift; fi
+
+case "$cmd" in
+  start)
+    if [ "$RM_MODE" = portable ] && [ "$UID_NOW" = 0 ] && [ "${RM_ALLOW_ROOT:-0}" != 1 ]; then
+      echo "relay-manager: No ejecutes el modo portátil como root: usa un usuario del grupo dialout o instala el servicio" >&2
+      exit 2
+    fi
+    run_data start "$@"
+    ;;
+  config)
+    # As root, «config export <fichero>» runs as the service user, which often cannot write where root asks (/root, a
+    # root-only folder) nor read a relative path from root's current folder: the export goes to stdout and root
+    # writes the file (0640, as the command does), through a temporary file next to it.
+    if [ "$RM_MODE" = native ] && [ "$UID_NOW" = 0 ] && [ "${1:-}" = export ] && [ $# -eq 2 ] && [ "$2" != - ] && service_user_exists; then
+      out=$2
+      tmp=$(mktemp "$(dirname -- "$out")/.relay-manager-config.XXXXXX") || die "No se puede escribir en $(dirname -- "$out")"
+      if ! setpriv --reuid="$SERVICE_USER" --regid="$SERVICE_USER" --init-groups "$NODE" "$SERVER" config export - >"$tmp"; then
+        rm -f "$tmp"
+        exit 1
+      fi
+      chmod 0640 "$tmp"
+      mv -f "$tmp" "$out"
+      echo "Configuración exportada en $(realpath -- "$out")" >&2
+      exit 0
+    fi
+    run_data config "$@"
+    ;;
+  doctor | migrate | setup-token | user | backup | ping | plantillas) run_data "$cmd" "$@" ;;
+  restore) run_restore "$@" ;;
+  version | --version | -v) exec "$NODE" "$SERVER" version ;;
+  status) exec systemctl status relay-manager --no-pager ;;
+  restart)
+    if [ "$UID_NOW" = 0 ]; then exec systemctl restart relay-manager; fi
+    exec sudo systemctl restart relay-manager
+    ;;
+  logs) exec journalctl -u relay-manager -f -n 200 ;;
+  rollback) run_rollback "$@" ;;
+  red-equipos) run_red_equipos "$@" ;;
+  help | -h | --help) usage ;;
+  *)
+    echo "relay-manager: orden desconocida: $cmd" >&2
+    usage >&2
+    exit 2
+    ;;
+esac
